@@ -42,8 +42,8 @@ int qm_l;   /* file handle for the queing manager listen()   */
 int qm;     /* file handle for the queing manager accept()ed */
 int qm_state = QM_NOT_CONNECTED;
 
-int is_l;   /* file handle for instant streaming listen()    */
-int is;     /* file handle for instant streaming accept()ed  */
+int is_l;   /* file handle for instant streamer listen()    */
+int is;     /* file handle for instant streamer accept()ed  */
 int is_state = IS_NOT_CONNECTED;
 
 int web_l;  /* file handle for web clients listen()          */
@@ -59,41 +59,76 @@ int daemon_pid;
 char * buf; /* general purpose buffer */
 #define BUF_SZ 4096
 
-void process_row_data(int i){LOG("row_data()\n");}
-void process_is_data(void)  {LOG( "is_data()\n");}
-void process_web_data(void) {LOG("web_data()\n");}
-void process_qm_data(void)  {
+/* prototypes we need */
+void init_qm_l_socket(void);
+
+/* processors of input data from various sources */
+
+void process_row_data(int i) {LOG("row_data()\n");}
+void process_is_l_data(void) {LOG("is_l_data()\n");}
+void process_is_data(void)   {LOG("is_data()\n");}
+void process_web_data(void)  {LOG("web_data()\n");}
+void process_web_l_data(void){LOG("web_l_data()\n");}
+
+void close_qm(void)
+{
+	int ret;
+	ret = close(qm);
+	if(ret)
+	{
+		LOG("ERROR: close(qm): %s\n",
+				strerror(errno));
+	}
+	init_qm_l_socket();
+	qm_state = QM_NOT_CONNECTED;
+	LOG("listening for new QM connections\n");
+}
+
+void process_qm_l_data(void)  {
+
 	int ret;
 	struct sockaddr_in ca;
 	socklen_t salen = sizeof(struct sockaddr);
 
-
-	switch (qm_state)
+	ret = accept(qm_l, (struct sockaddr *)&ca, &salen);
+	if (ret < 0)
 	{
-		case QM_NOT_CONNECTED:
-			ret = accept(qm_l, (struct sockaddr *)&ca, &salen);
-			if (ret < 0)
-			{
-				LOG("ERROR: accept() in  process_qm_data(): %s\n",
-				    strerror(errno));
-				exit(1);
-			}
-			qm = ret;
-			qm_state = QM_CONNECTED;
-			LOG("queuing manager connected from %d.%d.%d.%d:%d\n",
-			   (ca.sin_addr.s_addr & 0x000000ff) >>  0,
-			   (ca.sin_addr.s_addr & 0x0000ff00) >>  8,
-			   (ca.sin_addr.s_addr & 0x00ff0000) >> 16,
-			   (ca.sin_addr.s_addr & 0xff000000) >> 24,
-			   ntohs(ca.sin_port)
-			   );
-			break;
-		case QM_CONNECTED:
-			break;
-		default:
-			LOG("ERROR: internal error in process_qm_data()\n");
-			exit(1);
+		LOG("ERROR: accept() in  process_qm_data(): %s\n",
+				strerror(errno));
+		exit(1);
 	}
+	qm = ret;
+	qm_state = QM_CONNECTED;
+	LOG("queuing manager connected from %d.%d.%d.%d:%d\n",
+			(ca.sin_addr.s_addr & 0x000000ff) >>  0,
+			(ca.sin_addr.s_addr & 0x0000ff00) >>  8,
+			(ca.sin_addr.s_addr & 0x00ff0000) >> 16,
+			(ca.sin_addr.s_addr & 0xff000000) >> 24,
+			ntohs(ca.sin_port)
+	   );
+	ret = close(qm_l);
+	if (ret)
+	{
+		LOG("ERROR: close(qm_l): %s\n", strerror(errno));
+	}
+}
+
+void process_qm_data(void)  {
+	int ret;
+	ret = read(qm, buf, BUF_SZ);
+	if (ret == 0)
+	{
+		LOG("QM closed connection\n");
+		close_qm();
+		return;
+	}
+	if (ret < 0)
+	{
+		LOG("ERROR: read() from queing manager: %s\n",
+		    strerror(errno));
+		exit(1);
+	}
+	LOG("QM: got %d bytes\n", ret);
 }
 
 void daemonize(void)
@@ -230,7 +265,7 @@ void sighandler(int s)
 	exit(0);
 }
 
-void init_sockets(void)
+void init_qm_l_socket(void)
 {
 	int ret;
 	struct sockaddr_in sa;
@@ -262,6 +297,11 @@ void init_sockets(void)
 		    strerror(errno));
 		exit(1);
 	}
+}
+
+void init_sockets(void)
+{
+	init_qm_l_socket();
 }
 
 void init(void)
@@ -297,17 +337,13 @@ void mainloop(void)
 	fd_set wfd;
 	fd_set efd;
 
-	int nfds = max_int(qm_l, is_l);
-	for (i=0; i<4; i++)
-		nfds = max_int(nfds, row[i]);
-	nfds = max_int(nfds, web_l);
-	nfds++;
+	int nfds;
 
 	struct timeval tv;
 
-
 	while(0Xacab)
 	{
+		/* prepare for select */
 		tv.tv_sec  = 1;
 		tv.tv_usec = 0;
 
@@ -315,30 +351,54 @@ void mainloop(void)
 		FD_ZERO(&wfd);
 		FD_ZERO(&efd);
 
+		/* row */
 		for (i=0; i<4; i++)
 			FD_SET(row[i], &rfd);
-		FD_SET(qm_l, &rfd);
-		FD_SET(is, &rfd);
-		FD_SET(web_l, &rfd);
-
 		for (i=0; i<4; i++)
 			FD_SET(row[i], &efd);
-		FD_SET(qm_l, &efd);
+		nfds = -1;
+		for (i=0; i<4; i++)
+			nfds = max_int(nfds, row[i]);
+
+		/* qm queuing manager, max 1 */
+		if (qm_state == QM_NOT_CONNECTED)
+		{
+			FD_SET(qm_l, &rfd);
+			FD_SET(qm_l, &efd);
+			nfds = max_int(nfds, qm_l);
+		}
 		if (qm_state == QM_CONNECTED)
 		{
+			FD_SET(qm, &rfd);
 			FD_SET(qm, &efd);
 			nfds = max_int(nfds, qm);
 		}
 
-		FD_SET(is, &efd);
+		/* is instant streamer client, max 1 */
+		if (is_state == IS_NOT_CONNECTED)
+		{
+			FD_SET(is_l, &rfd);
+			FD_SET(is_l, &efd);
+			nfds = max_int(nfds, is_l);
+		}
 		if (is_state == IS_CONNECTED)
 		{
+			FD_SET(is, &rfd);
 			FD_SET(is, &efd);
 			nfds = max_int(nfds, is);
 		}
-		FD_SET(web_l, &efd);
 
+		/* web */
+		FD_SET(web_l, &rfd);
+		FD_SET(web_l, &efd);
+		nfds = max_int(nfds, web_l);
+
+
+		/* select () */
+
+		nfds++;
 		ret = select(nfds, &rfd, &wfd, &efd, &tv);
+
 
 		/* error handling */
 		if (ret < 0)
@@ -347,6 +407,7 @@ void mainloop(void)
 					strerror(errno));
 			exit(1);
 		}
+
 		for (i=0; i<4; i++)
 			if (FD_ISSET(row[i], &efd))
 			{
@@ -355,19 +416,47 @@ void mainloop(void)
 					strerror(errno));
 				exit(1);
 			}
-		if (FD_ISSET(qm_l, &efd))
+
+		/* qm queuing manager, max 1 */
+		if (qm_state == QM_NOT_CONNECTED)
 		{
-			LOG("ERROR: select() on queuing manager: %s\n",
-					strerror(errno));
-			exit(1);
+			if (FD_ISSET(qm_l, &efd))
+			{
+				LOG("ERROR: select() on queuing manager listener: %s\n",
+						strerror(errno));
+				exit(1);
+			}
+		}
+		if (qm_state == QM_CONNECTED)
+		{
+			if (FD_ISSET(qm, &efd))
+			{
+				LOG("WARNING: select() on queuing manager connection: %s\n",
+						strerror(errno));
+				close_qm();
+			}
 		}
 
-		if (FD_ISSET(is, &efd))
+		/* is instant streamer client, max 1 */
+		if (is_state == IS_NOT_CONNECTED)
 		{
-			LOG("ERROR: select() on instant streamer: %s\n",
-					strerror(errno));
-			exit(1);
+			if (FD_ISSET(is_l, &efd))
+			{
+				LOG("ERROR: select() on instant streamer listener: %s\n",
+						strerror(errno));
+				exit(1);
+			}
 		}
+		if (is_state == IS_CONNECTED)
+		{
+			if (FD_ISSET(is, &efd))
+			{
+				LOG("ERROR: select() on instant streamer connection: %s\n",
+						strerror(errno));
+				exit(1);
+			}
+		}
+
 		if (FD_ISSET(web_l, &efd))
 		{
 			LOG("ERROR: select() on web client: %s\n",
@@ -376,15 +465,37 @@ void mainloop(void)
 		}
 
 		/* data handling */
+
+		/* we shouldn't get any data from the master
+		 * (only used in bootstrapping, not our business)
+		 * but at least we log it */
 		for (i=0; i<4; i++)
 			if (FD_ISSET(row[i], &rfd))
 				process_row_data(i);
-		if (FD_ISSET(qm_l, &rfd))
-			process_qm_data();
-		if (FD_ISSET(is, &rfd))
-			process_is_data();
+
+		if (qm_state == QM_NOT_CONNECTED)
+		{
+			if (FD_ISSET(qm_l, &rfd))
+				process_qm_l_data();
+		}
+		if (qm_state == QM_CONNECTED)
+		{
+			if (FD_ISSET(qm, &rfd))
+				process_qm_data();
+		}
+
+		if (is_state == IS_NOT_CONNECTED)
+		{
+			if (FD_ISSET(is_l, &rfd))
+				process_is_l_data();
+		}
+		if (is_state == IS_CONNECTED)
+		{
+			if (FD_ISSET(is, &rfd))
+				process_is_data();
+		}
 		if (FD_ISSET(web_l, &rfd))
-			process_web_data();
+			process_web_l_data();
 	}
 }
 
