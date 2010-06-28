@@ -9,6 +9,7 @@
  *   a.c.a.b. - all colors are beautiful
  *
  * the installation is run by the Chaos Computer Club Munich
+ * as part of the puerto giesing
  * 
  *
  * license:

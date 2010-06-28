@@ -1,3 +1,24 @@
+/*
+ * gigargoyle
+ *
+ * a nighttime composition in opensource
+ *
+ * this is part of the 2010 binkenlights installation
+ * in Giesing, Munich, Germany which is called
+ *
+ *   a.c.a.b. - all colors are beautiful
+ *
+ * the installation is run by the Chaos Computer Club Munich
+ * as part of the puerto giesing
+ * 
+ *
+ * license:
+ *          GPL v2, see the file LICENSE
+ * authors:
+ *          Matthias Wenzel - aka - mazzoo
+ *
+ */
+
 #ifndef PACKETS_H
 #define PACKETS_H
 
