@@ -20,6 +20,9 @@
 #define PKT_TYPE_SET_SCREEN     0x11
 #define PKT_TYPE_FLIP_DBL_BUF   0x12
 
+#define PKT_TYPE_TEXT           0x20
+#define PKT_TYPE_SET_FONT       0x21
+
 typedef struct pkt_s {
 	uint32_t  hdr;     /* see above definition */
 	uint32_t  pkt_len; /* including header */
