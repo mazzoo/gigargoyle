@@ -27,7 +27,7 @@
 #define PKT_MASK_VERSION 0xff000000 /* 0x00 */
 #define PKT_MASK_DBL_BUF 0x00008000 /* uses feature double buffering    */
 #define PKT_MASK_FADING  0x00004000 /* uses feature fading              */
-#define PKT_MASK_RGB8    0x00002000 /* r16g16b16 format                 */
+#define PKT_MASK_RGB16   0x00002000 /* r16g16b16 format                 */
 #define PKT_MASK_RGB8    0x00001000 /* r8g8b8 format                    */
 #define PKT_MASK_GREY4   0x00000800 /* 4bit grey per pixel              */
 #define PKT_MASK_BW      0x00000400 /* bw 1 byte per pixel format       */
