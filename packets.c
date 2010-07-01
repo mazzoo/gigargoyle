@@ -129,7 +129,7 @@ void set_screen_blk(void)
 	}
 }
 
-void set_screen(uint8_t * s)
+void set_screen(uint8_t s[ACAB_X][ACAB_Y][3])
 {
 	int ix, iy;
 	for (ix=0; ix < ACAB_X; ix++)
@@ -137,9 +137,9 @@ void set_screen(uint8_t * s)
 		for (iy=0; iy < ACAB_Y; iy++)
 		{
 			set_pixel_xy(
-			                s[ix + ACAB_X*iy * 0],
-			                s[ix + ACAB_X*iy * 1],
-			                s[ix + ACAB_X*iy * 2],
+			                s[ix][iy][0],
+			                s[ix][iy][1],
+			                s[ix][iy][2],
 					ix, iy
 				    );
 		}
