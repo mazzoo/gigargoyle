@@ -35,10 +35,15 @@
 #define ACAB_X 24
 #define ACAB_Y  4 /*sigh*/
 
+#define FIFO_DEPTH 1024 /* number of messages to be q'd    */
+#define FIFO_WIDTH 2048 /* more than a MTU should be sane  */
+
 #define PORT_QM  0xabac /* tcp port for the queing manager */
-#define PORT_IS  0xacab /* tcp port for instant streamers */
-#define PORT_WEB     80 /* tcp port for live watchers */
+#define PORT_IS  0xacab /* tcp port for instant streamers  */
+#define PORT_WEB     80 /* tcp port for live watchers      */
 
 #define MAX_WEB_CLIENTS 1024
+
+#define MIN_GAP_BUS_TRANSFERS 1000 /* in us */
 
 #endif /* CONFIG_H */

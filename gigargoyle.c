@@ -34,10 +34,9 @@
 
 #include "config.h"
 #include "packets.h"
+#include "gigargoyle.h"
 
-pkt_t p; /* network packet from is or qm */
-
-int row[4]; /* file handles for the uarts */
+pkt_t * p; /* network packet from is or qm */
 
 int qm_l;   /* file handle for the queing manager listen()   */
 int qm;     /* file handle for the queing manager accept()ed */
@@ -50,12 +49,19 @@ int is_state = IS_NOT_CONNECTED;
 int web_l;  /* file handle for web clients listen()          */
 int web[MAX_WEB_CLIENTS];  /* file handle for web clients accept()ed        */
 
-/* logging */
-int logfd;    /* logfile descriptor */
-FILE * logfp;
-#define LOG(fmt, args...) {fprintf(logfp, fmt, ##args); fflush(logfp);}
-
 int daemon_pid;
+
+uint8_t ** fifo;
+uint32_t   fifo_rd    = 0;
+uint32_t   fifo_wr    = 0;
+int        fifo_state = FIFO_EMPTY;
+
+/* moodlamp control stuff */
+uint32_t frame_duration = 10;  /* us per frame, modified by
+                                * PKT_TYPE_SET_FRAME_RATE or
+                                * PKT_TYPE_SET_DURATION */
+uint8_t source = SOURCE_LOCAL; /* changed when QM or IS data come in
+                                * or fifo runs empty */
 
 char * buf; /* general purpose buffer */
 #define BUF_SZ 4096
@@ -129,8 +135,51 @@ void process_qm_data(void)  {
 		    strerror(errno));
 		exit(1);
 	}
-	LOG("QM: got %d bytes\n", ret);
+	if (ret < 8) /* FIXME not the netcat way */
+		LOG("WARNING: dropping short (%d) packet from QM\n", ret);
+
+	p = (pkt_t *) buf;
+	p->data = (uint8_t *) &buf[8];
+	in_packet(p, ret);
 }
+
+/* fifo stuph */
+
+void wr_fifo(pkt_t * p)
+{
+	if (fifo_state == FIFO_FULL)
+	{
+		LOG("WARNING: fifo full, dropping packet, hdr %x\n", p->hdr);
+		return;
+	}
+	if (fifo_state == FIFO_FULL)
+		fifo_state = FIFO_HALF;
+
+	if (p->pkt_len > FIFO_WIDTH)
+	{
+		LOG("WARNING: dropping long packet, hdr %x\n", p->hdr);
+		return;
+	}
+	memcpy(fifo[fifo_wr], p, p->pkt_len);
+	fifo_wr++;
+	fifo_wr %= FIFO_DEPTH;
+	if (fifo_wr == fifo_rd)
+		fifo_state = FIFO_FULL;
+}
+
+pkt_t * rd_fifo(void)
+{
+	return NULL;
+}
+
+void flush_fifo(void)
+{
+	fifo_rd = 0;
+	fifo_wr = 0;
+	fifo_state = FIFO_EMPTY;
+}
+
+/* initialisation */
 
 void daemonize(void)
 {
@@ -305,12 +354,41 @@ void init_sockets(void)
 	init_qm_l_socket();
 }
 
+void init_fifo(void)
+{
+	*fifo = malloc(FIFO_DEPTH);
+	if (!(*fifo))
+	{
+		LOG("ERROR: out of memory (fifo)\n");
+		exit(1);
+	}
+
+	int i;
+	for (i=0; i<FIFO_DEPTH; i++)
+	{
+		fifo[i] = malloc(FIFO_WIDTH);
+		if (fifo[i])
+		{
+			LOG("ERROR: out of memory (fifo %d)\n", i);
+			exit(1);
+		}
+	}
+}
+
 void init(void)
 {
 	buf = malloc(BUF_SZ);
 	if (!buf)
 	{
-		printf("ERROR: couldn't alloc %d bytes: %s\n",
+		printf("ERROR: couldn't alloc %d buffer bytes: %s\n",
+		       BUF_SZ,
+		       strerror(errno));
+		exit(1);
+	}
+	p = malloc(sizeof(pkt_t));
+	if (!p)
+	{
+		printf("ERROR: couldn't alloc %d packet bytes: %s\n",
 		       BUF_SZ,
 		       strerror(errno));
 		exit(1);
@@ -320,6 +398,7 @@ void init(void)
 	signal(SIGTERM, sighandler);
 	init_uarts();
 	init_sockets();
+	init_fifo();
 }
 
 int max_int(int a, int b)
@@ -345,8 +424,8 @@ void mainloop(void)
 	while(0Xacab)
 	{
 		/* prepare for select */
-		tv.tv_sec  = 1;
-		tv.tv_usec = 0;
+		tv.tv_sec  = 0;
+		tv.tv_usec = frame_duration;
 
 		FD_ZERO(&rfd);
 		FD_ZERO(&wfd);
