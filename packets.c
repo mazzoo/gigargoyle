@@ -44,14 +44,14 @@ void in_packet(pkt_t * p, uint32_t plen)
 		return; /* drop short packets */
 	}
 
-	if (p->pkt_len != plen)
-		LOG("FIXME: support padded packets (netcat)\n");
-
 	if ((p->hdr & PKT_MASK_VERSION) != VERSION)
 	{
 		LOG("WARNING: dropping pkt with invalid version, hdr %x\n", p->hdr);
 		return; /* drop wrong version packets */
 	}
+
+	if (p->pkt_len != plen)
+		LOG("FIXME: support padded packets (netcat)\n");
 
 	switch(p->hdr & PKT_MASK_TYPE)
 	{
@@ -69,8 +69,12 @@ void in_packet(pkt_t * p, uint32_t plen)
 		case PKT_TYPE_SET_FONT:
 			wr_fifo(p);
 			break;
+		/* out-of-band immediate commands follow */
 		case PKT_TYPE_FLUSH_FIFO:
 			flush_fifo();
+			break;
+		case PKT_TYPE_SHUTDOWN:
+			gigargoyle_shutdown(); /* FIXME only from QM, not from IS */
 			break;
 		default:
 			return; /* drop unsupported packages */

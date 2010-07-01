@@ -579,6 +579,12 @@ void mainloop(void)
 	}
 }
 
+void gigargoyle_shutdown(void)
+{
+	LOG("received a shutdown packet - exiting\n");
+	exit(0);
+}
+
 int main(int argc, char ** argv)
 {
 	init();

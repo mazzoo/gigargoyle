@@ -42,4 +42,6 @@ pkt_t * rd_fifo(void);
 void wr_fifo(pkt_t * p);
 void flush_fifo(void);
 
+void gigargoyle_shutdown(void);
+
 #endif /* GIGARGOYLE_H */
