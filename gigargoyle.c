@@ -356,8 +356,8 @@ void init_sockets(void)
 
 void init_fifo(void)
 {
-	*fifo = malloc(FIFO_DEPTH);
-	if (!(*fifo))
+	fifo = malloc(FIFO_DEPTH);
+	if (!fifo)
 	{
 		LOG("ERROR: out of memory (fifo)\n");
 		exit(1);
@@ -367,7 +367,7 @@ void init_fifo(void)
 	for (i=0; i<FIFO_DEPTH; i++)
 	{
 		fifo[i] = malloc(FIFO_WIDTH);
-		if (fifo[i])
+		if (!fifo[i])
 		{
 			LOG("ERROR: out of memory (fifo %d)\n", i);
 			exit(1);
