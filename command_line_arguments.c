@@ -35,20 +35,40 @@ error_t parse_opt(int key, char *arg, struct argp_state *state) {
     arguments->foreground = 1;
     break;
   case 'q':
-    arguments->port_qm = strtol(arg, &endptr, 10);
-    break;
+    arguments->port_qm = strtol(arg, &endptr, 0);
+    if (arguments->port_qm == 0) {
+      argp_error(state, "Could not parse port: %s", arg);
+      return ARGP_ERR_UNKNOWN;
+    } else
+      break;
   case 'i':
-    arguments->port_is = strtol(arg, &endptr, 10);
-    break;
+    arguments->port_is = strtol(arg, &endptr, 0);
+    if (arguments->port_is == 0) {
+      argp_error(state, "Could not parse port: %s", arg);
+      return ARGP_ERR_UNKNOWN;
+    } else
+      break;
   case 'w':
-    arguments->port_web = strtol(arg, &endptr, 10);
-    break;
+    arguments->port_web = strtol(arg, &endptr, 0);
+    if (arguments->port_web == 0) {
+      argp_error(state, "Could not parse port: %s", arg);
+      return ARGP_ERR_UNKNOWN;
+    } else
+      break;
   case 'x':
-    arguments->acab_x = strtol(arg, &endptr, 10);
-    break;
+    arguments->acab_x = strtol(arg, &endptr, 0);
+    if (arguments->acab_x == 0) {
+      argp_error(state, "Could not parse int: %s", arg);
+      return ARGP_ERR_UNKNOWN;
+    } else
+      break;
   case 'y':
-    arguments->acab_y = strtol(arg, &endptr, 10);
-    break;
+    arguments->acab_y = strtol(arg, &endptr, 0);
+    if (arguments->acab_y == 0) {
+      argp_error(state, "Could not parse int: %s", arg);
+      return ARGP_ERR_UNKNOWN;
+    } else
+      break;
   case 127+1:
     arguments->row_0_uart = arg;
     break;
