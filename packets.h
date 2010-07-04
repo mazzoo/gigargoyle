@@ -22,8 +22,11 @@
 #ifndef PACKETS_H
 #define PACKETS_H
 
+#include <stdint.h>
+
 #define VERSION 0x00
 
+#define VERSION_SHIFT      24
 #define PKT_MASK_VERSION 0xff000000 /* 0x00 */
 #define PKT_MASK_DBL_BUF 0x00008000 /* uses feature double buffering    */
 #define PKT_MASK_FADING  0x00004000 /* uses feature fading              */

@@ -89,7 +89,7 @@ void set_pixel_xy(
                   uint16_t y
                  ){
 	static uint64_t last_timestamp[4] =
-	                {0, 0, 0, 0}; /* FIXME flexible row/bus map ping*/
+	                {0, 0, 0, 0}; /* FIXME flexible row/bus mapping */
 
 	struct timeval tv;
 	uint64_t       timestamp;
