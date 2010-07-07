@@ -42,6 +42,10 @@ pkt_t * rd_fifo(void);
 void wr_fifo(pkt_t * p);
 void flush_fifo(void);
 
+uint64_t gettimeofday64(void);
+
+uint8_t get_source(void);
+
 void gigargoyle_shutdown(void);
 
 #endif /* GIGARGOYLE_H */

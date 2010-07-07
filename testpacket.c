@@ -27,7 +27,7 @@ void send_pkt(pkt_t * p){
 		printf("ERROR: send_pkt(): %s\n", strerror(errno));
 		exit(1);
 	}
-	usleep(1); /* to avoid padded packets (for now) FIXME! */
+	usleep(2*1000); /* to avoid padded packets (for now) FIXME! */
 }
 
 void init_socket(void)
@@ -84,7 +84,7 @@ int main(int argc, char ** argv)
 
 	p.hdr &= ~PKT_MASK_TYPE;          /* clear command */
 	p.hdr |= PKT_TYPE_SET_SCREEN_RND_BW; /* command: random bw screen */
-	for (i=0; i<999; i++)
+	for (i=0; i<19; i++)
 	{
 		send_pkt(&p);
 		usleep(100 * 1000);
@@ -92,7 +92,7 @@ int main(int argc, char ** argv)
 
 	p.hdr &= ~PKT_MASK_TYPE;          /* clear command */
 	p.hdr |= PKT_TYPE_SET_SCREEN_RND_COL; /* command: random color screen */
-	for (i=0; i<999; i++)
+	for (i=0; i<19; i++)
 	{
 		send_pkt(&p);
 		usleep(100 * 1000);

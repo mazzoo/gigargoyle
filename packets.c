@@ -91,7 +91,6 @@ void set_pixel_xy(
 	static uint64_t last_timestamp[4] =
 	                {0, 0, 0, 0}; /* FIXME flexible row/bus mapping */
 
-	struct timeval tv;
 	uint64_t       timestamp;
 
 	uint8_t bus_buf[9];
@@ -106,11 +105,7 @@ void set_pixel_xy(
 	bus_buf[8] = 0x31;
 	int ret;
 
-	ret = gettimeofday(&tv, NULL);
-	timestamp  =  tv.tv_sec;
-	timestamp +=  tv.tv_usec / 1000000;
-	timestamp <<= 32;
-	timestamp +=  tv.tv_usec % 1000000;
+	timestamp = gettimeofday64();
 
 	if (last_timestamp[y] + MIN_GAP_BUS_TRANSFERS > timestamp)
 		usleep(last_timestamp[y] + MIN_GAP_BUS_TRANSFERS - timestamp);
@@ -185,5 +180,26 @@ void set_screen_rnd_col(void)
 		}
 	}
 	set_screen(tmp_screen);
+}
+
+void next_frame(void)
+{
+	static int i;
+	i++;
+	if (!(i%10000))
+	{
+		LOG("10k: next_frame()\n");
+		i=0;
+	}
+	switch(get_source()){
+		case SOURCE_QM:
+			break;
+		case SOURCE_IS:
+			break;
+		case SOURCE_LOCAL:
+			break;
+		default:
+			;
+	}
 }
 

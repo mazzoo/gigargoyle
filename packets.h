@@ -78,5 +78,6 @@ typedef struct pkt_s {
 
 /* prototypes from packets.c */
 void in_packet(pkt_t * p, uint32_t plen);
+void next_frame(void);
 
 #endif /* PACKETS_H */

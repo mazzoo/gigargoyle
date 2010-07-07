@@ -30,6 +30,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/time.h>
 #include <errno.h>
 
 #include "config.h"
@@ -60,6 +61,9 @@ int        fifo_state = FIFO_EMPTY;
 uint32_t frame_duration = 10;  /* us per frame, modified by
                                 * PKT_TYPE_SET_FRAME_RATE or
                                 * PKT_TYPE_SET_DURATION */
+uint32_t frame_remaining;
+uint64_t frame_last_time = 0;
+
 uint8_t source = SOURCE_LOCAL; /* changed when QM or IS data come in
                                 * or fifo runs empty */
 
@@ -88,6 +92,7 @@ void close_qm(void)
 	}
 	init_qm_l_socket();
 	qm_state = QM_NOT_CONNECTED;
+	source = SOURCE_LOCAL;
 	LOG("listening for new QM connections\n");
 }
 
@@ -106,6 +111,7 @@ void process_qm_l_data(void)  {
 	}
 	qm = ret;
 	qm_state = QM_CONNECTED;
+	source = SOURCE_QM;
 	LOG("queuing manager connected from %d.%d.%d.%d:%d\n",
 			(ca.sin_addr.s_addr & 0x000000ff) >>  0,
 			(ca.sin_addr.s_addr & 0x0000ff00) >>  8,
@@ -178,6 +184,23 @@ void flush_fifo(void)
 	fifo_rd = 0;
 	fifo_wr = 0;
 	fifo_state = FIFO_EMPTY;
+}
+
+uint64_t gettimeofday64(void)
+{
+	uint64_t timestamp;
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	timestamp  =  tv.tv_sec;
+	timestamp +=  tv.tv_usec / 1000000;
+	timestamp <<= 32;
+	timestamp +=  tv.tv_usec % 1000000;
+	return timestamp;
+}
+
+uint8_t get_source(void)
+{
+	return source;
 }
 
 /* initialisation */
@@ -427,11 +450,13 @@ void mainloop(void)
 
 	struct timeval tv;
 
+	frame_remaining = frame_duration;
+
 	while(0Xacab)
 	{
 		/* prepare for select */
 		tv.tv_sec  = 0;
-		tv.tv_usec = frame_duration;
+		tv.tv_usec = frame_remaining;
 
 		FD_ZERO(&rfd);
 		FD_ZERO(&wfd);
@@ -582,6 +607,19 @@ void mainloop(void)
 		}
 		if (FD_ISSET(web_l, &rfd))
 			process_web_l_data();
+
+		/* if frame_duration is over run next frame */
+
+		uint64_t tmp64 = gettimeofday64();
+		if ((frame_remaining <= tmp64 - frame_last_time) ||
+		    (frame_last_time == 0))
+		{
+			frame_last_time = tmp64;
+			frame_remaining = frame_duration;
+			next_frame();
+		}else{
+			frame_remaining = frame_last_time + frame_duration - tmp64;
+		}
 	}
 }
 
