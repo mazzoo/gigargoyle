@@ -26,6 +26,7 @@
 
 #include "config.h"
 #include "packets.h"
+#include "fifo.h"
 #include "gigargoyle.h"
 
 void in_packet(pkt_t * p, uint32_t plen)
@@ -184,13 +185,16 @@ void set_screen_rnd_col(void)
 
 void next_frame(void)
 {
-	static int i;
+	static int i=0;
 	i++;
 	if (!(i%10000))
 	{
 		LOG("10k: next_frame()\n");
 		i=0;
 	}
+	/* hmm, I think its better to separate these when filling the FIFO, 
+	 * not while emptying it
+	 */
 	switch(get_source()){
 		case SOURCE_QM:
 			break;
@@ -201,5 +205,15 @@ void next_frame(void)
 		default:
 			;
 	}
+
+	if (fifo_state == FIFO_EMPTY)
+	{
+		if (get_source() == SOURCE_LOCAL)
+			fill_fifo_local();
+		return;
+	}
+
+	pkt_t * p;
+	p = rd_fifo();
 }
 

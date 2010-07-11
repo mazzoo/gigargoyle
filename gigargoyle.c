@@ -35,6 +35,7 @@
 
 #include "config.h"
 #include "packets.h"
+#include "fifo.h"
 #include "gigargoyle.h"
 
 pkt_t * p; /* network packet from is or qm */
@@ -52,20 +53,12 @@ int web[MAX_WEB_CLIENTS];  /* file handle for web clients accept()ed        */
 
 int daemon_pid;
 
-uint8_t ** fifo;
-uint32_t   fifo_rd    = 0;
-uint32_t   fifo_wr    = 0;
-int        fifo_state = FIFO_EMPTY;
-
 /* moodlamp control stuff */
 uint32_t frame_duration = 10;  /* us per frame, modified by
                                 * PKT_TYPE_SET_FRAME_RATE or
                                 * PKT_TYPE_SET_DURATION */
 uint32_t frame_remaining;
 uint64_t frame_last_time = 0;
-
-uint8_t source = SOURCE_LOCAL; /* changed when QM or IS data come in
-                                * or fifo runs empty */
 
 char * buf; /* general purpose buffer */
 #define BUF_SZ 4096
@@ -147,43 +140,6 @@ void process_qm_data(void)  {
 	p = (pkt_t *) buf;
 	p->data = (uint8_t *) &buf[8];
 	in_packet(p, ret);
-}
-
-/* fifo stuph */
-
-void wr_fifo(pkt_t * p)
-{
-	if (fifo_state == FIFO_FULL)
-	{
-		LOG("WARNING: fifo full, dropping packet, hdr %x\n", p->hdr);
-		return;
-	}
-	if (fifo_state == FIFO_FULL)
-		fifo_state = FIFO_HALF;
-
-	if (p->pkt_len > FIFO_WIDTH)
-	{
-		LOG("WARNING: dropping long packet, hdr %x\n", p->hdr);
-		return;
-	}
-	memcpy(fifo[fifo_wr], p, p->pkt_len);
-	fifo_wr++;
-	fifo_wr %= FIFO_DEPTH;
-	if (fifo_wr == fifo_rd)
-		fifo_state = FIFO_FULL;
-	LOG("FIFO[%4.4d:%4.4d]: stored pkt type %8.8x\n", fifo_rd, fifo_wr, p->hdr);
-}
-
-pkt_t * rd_fifo(void)
-{
-	return NULL;
-}
-
-void flush_fifo(void)
-{
-	fifo_rd = 0;
-	fifo_wr = 0;
-	fifo_state = FIFO_EMPTY;
 }
 
 uint64_t gettimeofday64(void)
@@ -383,27 +339,6 @@ void init_sockets(void)
 	init_qm_l_socket();
 }
 
-void init_fifo(void)
-{
-	fifo = malloc(FIFO_DEPTH * (sizeof(fifo)));
-	if (!fifo)
-	{
-		LOG("ERROR: out of memory (fifo)\n");
-		exit(1);
-	}
-
-	int i;
-	for (i=0; i<FIFO_DEPTH; i++)
-	{
-		fifo[i] = malloc(FIFO_WIDTH);
-		if (!fifo[i])
-		{
-			LOG("ERROR: out of memory (fifo %d)\n", i);
-			exit(1);
-		}
-	}
-}
-
 void init(void)
 {
 	buf = malloc(BUF_SZ);
@@ -428,6 +363,7 @@ void init(void)
 	init_uarts();
 	init_sockets();
 	init_fifo();
+	source = SOURCE_LOCAL;
 }
 
 int max_int(int a, int b)

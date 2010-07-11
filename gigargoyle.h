@@ -29,18 +29,12 @@ int logfd;    /* logfile descriptor */
 FILE * logfp;
 #define LOG(fmt, args...) {fprintf(logfp, fmt, ##args); fflush(logfp);}
 
+uint8_t source; /* changed when QM or IS data come in
+                 * or fifo runs empty */
+
 int row[4]; /* file handles for the uarts */
 
 uint8_t tmp_screen[ACAB_X][ACAB_Y][3];
-
-/* fifo */
-#define FIFO_EMPTY 0x1
-#define FIFO_HALF  0x2
-#define FIFO_FULL  0x3
-                      
-pkt_t * rd_fifo(void);
-void wr_fifo(pkt_t * p);
-void flush_fifo(void);
 
 uint64_t gettimeofday64(void);
 

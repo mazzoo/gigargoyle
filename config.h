@@ -46,4 +46,8 @@
 
 #define MIN_GAP_BUS_TRANSFERS 1000 /* in us */
 
+#define MISSING_PKTS_TO_LOCAL 10 /* how many "missing" packets
+				  * from either QM or IS do we tolerate
+				  * before switching to local source */
+
 #endif /* CONFIG_H */
