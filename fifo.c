@@ -28,7 +28,7 @@ void wr_fifo(pkt_t * pkt)
 {
 	if (fifo_state == FIFO_FULL)
 	{
-		LOG("WARNING: fifo full, dropping packet, hdr %x\n", pkt->hdr);
+		LOG("FIFO: WARNING: fifo full, dropping packet, hdr %x\n", pkt->hdr);
 		return;
 	}
 	if (fifo_state == FIFO_FULL)
@@ -36,7 +36,7 @@ void wr_fifo(pkt_t * pkt)
 
 	if (pkt->pkt_len > FIFO_WIDTH)
 	{
-		LOG("WARNING: dropping long packet, hdr %x\n", pkt->hdr);
+		LOG("FIFO: WARNING: dropping long packet, hdr %x\n", pkt->hdr);
 		return;
 	}
 	memcpy(fifo[fifo_wr], pkt, pkt->pkt_len);
@@ -44,7 +44,7 @@ void wr_fifo(pkt_t * pkt)
 	fifo_wr %= FIFO_DEPTH;
 	if (fifo_wr == fifo_rd)
 		fifo_state = FIFO_FULL;
-	LOG("FIFO[%4.4d:%4.4d]: stored pkt type %8.8x\n", fifo_rd, fifo_wr, pkt->hdr);
+	//LOG("FIFO[%4.4d:%4.4d]: stored pkt type %8.8x\n", fifo_rd, fifo_wr, pkt->hdr);
 }
 
 pkt_t * rd_fifo(void)
@@ -52,7 +52,7 @@ pkt_t * rd_fifo(void)
 	static int running_empty_on_network = 0;
 	if (fifo_state == FIFO_EMPTY)
 	{
-		LOG("WARNING: fifo empty, returning NULL\n");
+		LOG("FIFO: WARNING: fifo empty, returning NULL\n");
 		if (source == SOURCE_LOCAL)
 			fill_fifo_local();
 		else
@@ -60,7 +60,7 @@ pkt_t * rd_fifo(void)
 
 		if (running_empty_on_network >= MISSING_PKTS_TO_LOCAL)
 		{
-			LOG("WARNING: filling fifo with local data");
+			LOG("FIFO: WARNING: filling fifo with local data");
 			LOG("as we're running empty from the network\n");
 			fill_fifo_local();
 			running_empty_on_network = 0;
@@ -128,7 +128,7 @@ void fill_fifo_local(void)
 
 	fp->hdr |= PKT_TYPE_SET_SCREEN_BLK; /* command: black screen */
 
-	memcpy(fifo[0], fp, fp->pkt_len);
+	wr_fifo(fp);
 
 	fp->hdr &= ~PKT_MASK_TYPE;          /* clear command */
 	fp->hdr |= PKT_TYPE_SET_SCREEN_RND_BW; /* command: random bw screen */
@@ -136,6 +136,7 @@ void fill_fifo_local(void)
 	int i;
 	for (i=1; i < FIFO_DEPTH; i++)
 	{
-		memcpy(fifo[i], fp, fp->pkt_len);
+		wr_fifo(fp);
 	}
+	//LOG("FIFO: filled fifo with local animation\n");
 }

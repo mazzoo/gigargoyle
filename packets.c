@@ -33,13 +33,13 @@ void in_packet(pkt_t * p, uint32_t plen)
 {
 	if (plen < 8)
 	{
-		LOG("WARNING: dropping very short packet (len %d)\n", plen);
+		LOG("PKTS: WARNING: dropping very short packet (len %d)\n", plen);
 		return; /* drop very short packets */
 	}
 
 	if (p->pkt_len < plen)
 	{
-		LOG("WARNING: dropping short packet (%d < %d)\n",
+		LOG("PKTS: WARNING: dropping short packet (%d < %d)\n",
 		    p->pkt_len, plen
 		   );
 		return; /* drop short packets */
@@ -47,12 +47,12 @@ void in_packet(pkt_t * p, uint32_t plen)
 
 	if ((p->hdr & PKT_MASK_VERSION) != VERSION)
 	{
-		LOG("WARNING: dropping pkt with invalid version, hdr %x\n", p->hdr);
+		LOG("PKTS: WARNING: dropping pkt with invalid version, hdr %x\n", p->hdr);
 		return; /* drop wrong version packets */
 	}
 
 	if (p->pkt_len != plen)
-		LOG("FIXME: support padded packets (netcat)\n");
+		LOG("PKTS: FIXME: support padded packets (netcat)\n");
 
 	switch(p->hdr & PKT_MASK_TYPE)
 	{
@@ -113,7 +113,7 @@ void set_pixel_xy(
 
 	ret = write(row[y], bus_buf, 9);
 	if (ret != 9)
-		LOG("WARNING: write(bus %d) = %d != 9\n", y, ret);
+		LOG("PKTS: WARNING: write(bus %d) = %d != 9\n", y, ret);
 	last_timestamp[y] = timestamp;
 }
 
@@ -185,35 +185,52 @@ void set_screen_rnd_col(void)
 
 void next_frame(void)
 {
-	static int i=0;
-	i++;
-	if (!(i%10000))
-	{
-		LOG("10k: next_frame()\n");
-		i=0;
-	}
-	/* hmm, I think its better to separate these when filling the FIFO, 
-	 * not while emptying it
-	 */
-	switch(get_source()){
-		case SOURCE_QM:
-			break;
-		case SOURCE_IS:
-			break;
-		case SOURCE_LOCAL:
-			break;
-		default:
-			;
-	}
-
 	if (fifo_state == FIFO_EMPTY)
 	{
-		if (get_source() == SOURCE_LOCAL)
+		if (source == SOURCE_LOCAL)
 			fill_fifo_local();
 		return;
 	}
 
 	pkt_t * p;
 	p = rd_fifo();
+
+	switch(p->hdr & PKT_MASK_TYPE)
+	{
+		case PKT_TYPE_SET_SCREEN_BLK:
+		case PKT_TYPE_SET_SCREEN_WHT:
+		case PKT_TYPE_SET_SCREEN_RND_BW:
+		case PKT_TYPE_SET_SCREEN_RND_COL:
+		case PKT_TYPE_SET_FADE_RATE:
+		case PKT_TYPE_SET_PIXEL:
+		case PKT_TYPE_SET_SCREEN:
+		case PKT_TYPE_FLIP_DBL_BUF:
+		case PKT_TYPE_TEXT:
+		case PKT_TYPE_SET_FONT:
+			break;
+		case PKT_TYPE_SET_FRAME_RATE:
+			if (p->pkt_len < 64)
+			{
+				LOG("PKTS: WARNING: dropping short SET_FRAME_RATE pkt\n");
+				return;
+			}
+			frame_duration = 1000000 / (*((uint32_t *)p->data));
+			break;
+		case PKT_TYPE_SET_DURATION:
+			if (p->pkt_len < 64)
+			{
+				LOG("PKTS: WARNING: dropping short SET_DURATION pkt\n");
+				return;
+			}
+			frame_duration = *((uint32_t *)p->data);
+			break;
+
+		/* out-of-band immediate commands follow */
+		/* but were handled already async when entering gigargoyle */
+		case PKT_TYPE_FLUSH_FIFO:
+		case PKT_TYPE_SHUTDOWN:
+		default:
+			return; /* drop unsupported packages */
+	}
 }
 

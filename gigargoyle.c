@@ -54,9 +54,6 @@ int web[MAX_WEB_CLIENTS];  /* file handle for web clients accept()ed        */
 int daemon_pid;
 
 /* moodlamp control stuff */
-uint32_t frame_duration = 10;  /* us per frame, modified by
-                                * PKT_TYPE_SET_FRAME_RATE or
-                                * PKT_TYPE_SET_DURATION */
 uint32_t frame_remaining;
 uint64_t frame_last_time = 0;
 
@@ -85,8 +82,9 @@ void close_qm(void)
 	}
 	init_qm_l_socket();
 	qm_state = QM_NOT_CONNECTED;
-	source = SOURCE_LOCAL;
-	LOG("listening for new QM connections\n");
+	if (source == SOURCE_QM)
+		source = SOURCE_LOCAL;
+	LOG("MAIN: listening for new QM connections\n");
 }
 
 void process_qm_l_data(void)  {
@@ -104,8 +102,9 @@ void process_qm_l_data(void)  {
 	}
 	qm = ret;
 	qm_state = QM_CONNECTED;
-	source = SOURCE_QM;
-	LOG("queuing manager connected from %d.%d.%d.%d:%d\n",
+	if (source != SOURCE_IS)
+		source = SOURCE_QM;
+	LOG("MAIN: queuing manager connected from %d.%d.%d.%d:%d\n",
 			(ca.sin_addr.s_addr & 0x000000ff) >>  0,
 			(ca.sin_addr.s_addr & 0x0000ff00) >>  8,
 			(ca.sin_addr.s_addr & 0x00ff0000) >> 16,
@@ -135,7 +134,7 @@ void process_qm_data(void)  {
 		exit(1);
 	}
 	if (ret < 8) /* FIXME not the netcat way */
-		LOG("WARNING: dropping short (%d) packet from QM\n", ret);
+		LOG("MAIN: WARNING: dropping short (%d) packet from QM\n", ret);
 
 	p = (pkt_t *) buf;
 	p->data = (uint8_t *) &buf[8];
@@ -152,11 +151,6 @@ uint64_t gettimeofday64(void)
 	timestamp <<= 32;
 	timestamp +=  tv.tv_usec % 1000000;
 	return timestamp;
-}
-
-uint8_t get_source(void)
-{
-	return source;
 }
 
 /* initialisation */
@@ -218,7 +212,7 @@ void daemonize(void)
 
 	daemon_pid = getpid();
 
-	LOG("gigargoyle starting up as pid %d\n", daemon_pid);
+	LOG("MAIN: gigargoyle starting up as pid %d\n", daemon_pid);
 
 	int pidfile = open(PID_FILE, 
 	                   O_WRONLY | O_CREAT | O_TRUNC,
@@ -272,7 +266,7 @@ void cleanup(void)
 		return;
 
 	if (logfp)
-		LOG("removing pidfile %s\n", PID_FILE);
+		LOG("MAIN: removing pidfile %s\n", PID_FILE);
 
 	ret = unlink(PID_FILE);
 	if (ret)
@@ -284,7 +278,7 @@ void cleanup(void)
 	}
 
 	if (logfp)
-		LOG("exiting.\n");
+		LOG("MAIN: exiting.\n");
 	cleanup_done = 1;
 }
 
@@ -318,7 +312,7 @@ void init_qm_l_socket(void)
 		ret = bind(qm_l, (struct sockaddr *) &sa, sizeof(sa));
 		if (ret < 0)
 		{
-			LOG("WARNING: bind() for queuing manager: %s... retrying %d\n",
+			LOG("MAIN: WARNING: bind() for queuing manager: %s... retrying %d\n",
 					strerror(errno), bind_retries);
 			usleep(1000000);
 		}else
@@ -363,7 +357,9 @@ void init(void)
 	init_uarts();
 	init_sockets();
 	init_fifo();
+
 	source = SOURCE_LOCAL;
+	frame_duration = 10;  /* us per frame */
 }
 
 int max_int(int a, int b)
@@ -478,7 +474,7 @@ void mainloop(void)
 		{
 			if (FD_ISSET(qm, &efd))
 			{
-				LOG("WARNING: select() on queuing manager connection: %s\n",
+				LOG("MAIN: WARNING: select() on queuing manager connection: %s\n",
 						strerror(errno));
 				close_qm();
 			}
@@ -561,7 +557,7 @@ void mainloop(void)
 
 void gigargoyle_shutdown(void)
 {
-	LOG("received a shutdown packet - exiting\n");
+	LOG("MAIN: received a shutdown packet - exiting\n");
 	exit(0);
 }
 

@@ -29,10 +29,14 @@ int logfd;    /* logfile descriptor */
 FILE * logfp;
 #define LOG(fmt, args...) {fprintf(logfp, fmt, ##args); fflush(logfp);}
 
-uint8_t source; /* changed when QM or IS data come in
-                 * or fifo runs empty */
+uint8_t source;           /* changed when QM or IS data come in
+                           * or fifo runs empty */
 
-int row[4]; /* file handles for the uarts */
+uint32_t frame_duration;  /* us per frame, modified by
+                           * PKT_TYPE_SET_FRAME_RATE or
+                           * PKT_TYPE_SET_DURATION */
+
+int row[4];               /* file handles for the uarts */
 
 uint8_t tmp_screen[ACAB_X][ACAB_Y][3];
 
