@@ -82,7 +82,7 @@ void in_packet(pkt_t * p, uint32_t plen)
 	}
 }
 
-void set_pixel_xy(
+void set_pixel_xy_rgb8(
                   uint16_t r,
                   uint16_t g,
                   uint16_t b,
@@ -117,6 +117,17 @@ void set_pixel_xy(
 	last_timestamp[y] = timestamp;
 }
 
+void set_pixel_xy_rgb16(
+                  uint16_t r,
+                  uint16_t g,
+                  uint16_t b,
+                  uint16_t x,
+                  uint16_t y
+                 ){
+	/* FIXME */
+	set_pixel_xy_rgb8(r, g, b, x, y);
+}
+
 void set_screen_blk(void)
 {
 	int ix, iy;
@@ -124,19 +135,36 @@ void set_screen_blk(void)
 	{
 		for (iy=0; iy < ACAB_Y; iy++)
 		{
-			set_pixel_xy(0, 0, 0, ix, iy);
+			set_pixel_xy_rgb8(0, 0, 0, ix, iy);
 		}
 	}
 }
 
-void set_screen(uint8_t s[ACAB_X][ACAB_Y][3])
+void set_screen_rgb8(uint8_t s[ACAB_X][ACAB_Y][3])
 {
 	int ix, iy;
 	for (ix=0; ix < ACAB_X; ix++)
 	{
 		for (iy=0; iy < ACAB_Y; iy++)
 		{
-			set_pixel_xy(
+			set_pixel_xy_rgb8(
+			                s[ix][iy][0],
+			                s[ix][iy][1],
+			                s[ix][iy][2],
+					ix, iy
+				    );
+		}
+	}
+}
+
+void set_screen_rgb16(uint16_t s[ACAB_X][ACAB_Y][3])
+{
+	int ix, iy;
+	for (ix=0; ix < ACAB_X; ix++)
+	{
+		for (iy=0; iy < ACAB_Y; iy++)
+		{
+			set_pixel_xy_rgb16(
 			                s[ix][iy][0],
 			                s[ix][iy][1],
 			                s[ix][iy][2],
@@ -155,17 +183,17 @@ void set_screen_rnd_bw(void)
 		{
 			if (random()&1)
 			{
-				tmp_screen[ix][iy][0] = 0xff;
-				tmp_screen[ix][iy][1] = 0xff;
-				tmp_screen[ix][iy][2] = 0xff;
+				tmp_screen8[ix][iy][0] = 0xff;
+				tmp_screen8[ix][iy][1] = 0xff;
+				tmp_screen8[ix][iy][2] = 0xff;
 			}else{
-				tmp_screen[ix][iy][0] = 0x00;
-				tmp_screen[ix][iy][1] = 0x00;
-				tmp_screen[ix][iy][2] = 0x00;
+				tmp_screen8[ix][iy][0] = 0x00;
+				tmp_screen8[ix][iy][1] = 0x00;
+				tmp_screen8[ix][iy][2] = 0x00;
 			}
 		}
 	}
-	set_screen(tmp_screen);
+	set_screen_rgb8(tmp_screen8);
 }
 
 void set_screen_rnd_col(void)
@@ -175,12 +203,35 @@ void set_screen_rnd_col(void)
 	{
 		for (iy=0; iy < ACAB_Y; iy++)
 		{
-			tmp_screen[ix][iy][0] = random();
-			tmp_screen[ix][iy][1] = random();
-			tmp_screen[ix][iy][2] = random();
+			tmp_screen8[ix][iy][0] = random();
+			tmp_screen8[ix][iy][1] = random();
+			tmp_screen8[ix][iy][2] = random();
 		}
 	}
-	set_screen(tmp_screen);
+	set_screen_rgb8(tmp_screen8);
+}
+
+void flip_double_buffer_on_bus(int b)
+{
+	uint8_t bus_buf[9]; //FIXME
+	bus_buf[0] = 0x5c;
+	bus_buf[1] = 0x30;
+	bus_buf[2] = 0x10;
+	bus_buf[3] = 'C';
+	bus_buf[7] = 0x5c;
+	bus_buf[8] = 0x31;
+	int ret;
+
+	ret = write(row[b], bus_buf, 9);
+	if (ret != 9)
+		LOG("PKTS: WARNING: flip_double_buffer_on_bus() write(bus %d) = %d != 9\n", b, ret);
+}
+
+void flip_double_buffer(void)
+{
+	int i;
+	for (i=0; i<4; i++)
+		flip_double_buffer_on_bus(i);
 }
 
 void next_frame(void)
@@ -197,27 +248,55 @@ void next_frame(void)
 
 	switch(p->hdr & PKT_MASK_TYPE)
 	{
-		case PKT_TYPE_SET_SCREEN_BLK:
-		case PKT_TYPE_SET_SCREEN_WHT:
-		case PKT_TYPE_SET_SCREEN_RND_BW:
-		case PKT_TYPE_SET_SCREEN_RND_COL:
 		case PKT_TYPE_SET_FADE_RATE:
 		case PKT_TYPE_SET_PIXEL:
-		case PKT_TYPE_SET_SCREEN:
 		case PKT_TYPE_FLIP_DBL_BUF:
 		case PKT_TYPE_TEXT:
 		case PKT_TYPE_SET_FONT:
+		case PKT_TYPE_SET_SCREEN_BLK:
+		case PKT_TYPE_SET_SCREEN_WHT:
+		case PKT_TYPE_SET_SCREEN_RND_BW:
+			set_screen_rnd_bw();
 			break;
+		case PKT_TYPE_SET_SCREEN_RND_COL:
+			set_screen_rnd_col();
+			break;
+
+		case PKT_TYPE_SET_SCREEN:
+			if (p->hdr & PKT_MASK_RGB16)
+			{
+				if (p->pkt_len != 8 + 2 * 3 * ACAB_X * ACAB_Y)
+				{
+					LOG("PKTS: WARNING: dropping SET_SCREEN RGB16 pkt, invalid length");
+					LOG(" %d != %d\n", p->pkt_len, 8 + 2 * 3 * ACAB_X * ACAB_Y);
+					return;
+				}
+				set_screen_rgb16((uint16_t (*)[ACAB_Y][3])p->data);
+			}
+			if (p->hdr & PKT_MASK_RGB8)
+			{
+				if (p->pkt_len != 8 + 3 * ACAB_X * ACAB_Y)
+				{
+					LOG("PKTS: WARNING: dropping SET_SCREEN RGB8 pkt, invalid length");
+					LOG(" %d != %d\n", p->pkt_len, 8 + 3 * ACAB_X * ACAB_Y);
+					return;
+				}
+				set_screen_rgb8((uint8_t (*)[ACAB_Y][3])p->data);
+			}
+
+			break;
+
 		case PKT_TYPE_SET_FRAME_RATE:
-			if (p->pkt_len < 64)
+			if (p->pkt_len != 12)
 			{
 				LOG("PKTS: WARNING: dropping short SET_FRAME_RATE pkt\n");
 				return;
 			}
 			frame_duration = 1000000 / (*((uint32_t *)p->data));
 			break;
+
 		case PKT_TYPE_SET_DURATION:
-			if (p->pkt_len < 64)
+			if (p->pkt_len != 12)
 			{
 				LOG("PKTS: WARNING: dropping short SET_DURATION pkt\n");
 				return;
@@ -226,11 +305,14 @@ void next_frame(void)
 			break;
 
 		/* out-of-band immediate commands follow */
-		/* but were handled already async when entering gigargoyle */
+		/* but were handled already async when entering gigargoyle, see in_packet() */
 		case PKT_TYPE_FLUSH_FIFO:
 		case PKT_TYPE_SHUTDOWN:
 		default:
 			return; /* drop unsupported packages */
 	}
+
+	if (p->hdr & PKT_MASK_DBL_BUF)
+		flip_double_buffer();
 }
 

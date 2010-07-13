@@ -38,7 +38,8 @@ uint32_t frame_duration;  /* us per frame, modified by
 
 int row[4];               /* file handles for the uarts */
 
-uint8_t tmp_screen[ACAB_X][ACAB_Y][3];
+uint8_t tmp_screen8 [ACAB_X][ACAB_Y][3];
+uint8_t tmp_screen16[ACAB_X][ACAB_Y][6];
 
 uint64_t gettimeofday64(void);
 
