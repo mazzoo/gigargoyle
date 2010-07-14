@@ -49,7 +49,8 @@ int is;     /* file handle for instant streamer accept()ed  */
 int is_state = IS_NOT_CONNECTED;
 
 int web_l;  /* file handle for web clients listen()          */
-int web[MAX_WEB_CLIENTS];  /* file handle for web clients accept()ed        */
+int web[MAX_WEB_CLIENTS];  /* file handle for web clients accept()ed */
+int web_state = WEB_NOT_CONNECTED;
 
 int daemon_pid;
 
@@ -68,8 +69,44 @@ void init_qm_l_socket(void);
 void process_row_data(int i) {LOG("row_data()\n");}
 void process_is_l_data(void) {LOG("is_l_data()\n");}
 void process_is_data(void)   {LOG("is_data()\n");}
-void process_web_data(void)  {LOG("web_data()\n");}
-void process_web_l_data(void){LOG("web_l_data()\n");}
+
+void process_web_l_data(void)
+{
+	int ret;
+	struct sockaddr_in ca;
+	socklen_t salen = sizeof(struct sockaddr);
+
+	ret = accept(web_l, (struct sockaddr *)&ca, &salen);
+	if (ret < 0)
+	{
+		LOG("ERROR: accept() in  process_web_l_data(): %s\n",
+				strerror(errno));
+		exit(1);
+	}
+	int i;
+	for (i=0; i<MAX_WEB_CLIENTS; i++){
+		if (web[i] == -1)
+		{
+			web[i] = ret;
+			LOG("WEB: wizard%d materialized in front of gigargoyle from %d.%d.%d.%d:%d\n",
+					i,
+					(ca.sin_addr.s_addr & 0x000000ff) >>  0,
+					(ca.sin_addr.s_addr & 0x0000ff00) >>  8,
+					(ca.sin_addr.s_addr & 0x00ff0000) >> 16,
+					(ca.sin_addr.s_addr & 0xff000000) >> 24,
+					ntohs(ca.sin_port)
+			   );
+			return;
+		}
+	}
+	LOG("WEB: WARNING: no more clients possible! had to reject %d.%d.%d.%d:%d\n",
+		(ca.sin_addr.s_addr & 0x000000ff) >>  0,
+		(ca.sin_addr.s_addr & 0x0000ff00) >>  8,
+		(ca.sin_addr.s_addr & 0x00ff0000) >> 16,
+		(ca.sin_addr.s_addr & 0xff000000) >> 24,
+		ntohs(ca.sin_port)
+	   );
+}
 
 void close_qm(void)
 {
@@ -96,7 +133,7 @@ void process_qm_l_data(void)  {
 	ret = accept(qm_l, (struct sockaddr *)&ca, &salen);
 	if (ret < 0)
 	{
-		LOG("ERROR: accept() in  process_qm_data(): %s\n",
+		LOG("ERROR: accept() in  process_qm_l_data(): %s\n",
 				strerror(errno));
 		exit(1);
 	}
@@ -321,6 +358,12 @@ void init_qm_l_socket(void)
 		}else
 			break;
 	}
+	if (ret < 0)
+	{
+		LOG("MAIN: WARNING: bind() for queuing manager failed. running without. no movie playing possible\n");
+		qm_state = QM_ERROR;
+		return;
+	}
 
 	ret = listen(qm_l, 8);
 	if (ret < 0)
@@ -331,9 +374,55 @@ void init_qm_l_socket(void)
 	}
 }
 
+void init_web_l_socket(void)
+{
+	int ret;
+	struct sockaddr_in sa;
+
+	web_l = socket (AF_INET, SOCK_STREAM, 0);
+	if (web_l < 0)
+	{
+		LOG("ERROR: socket() for web clients: %s\n",
+		    strerror(errno));
+		exit(1);
+	}
+	memset(&sa, 0, sizeof(sa));
+	sa.sin_family      = AF_INET;
+	sa.sin_addr.s_addr = htonl(INADDR_ANY);
+	sa.sin_port        = htons(PORT_WEB);
+
+	int bind_retries = 4;
+	while (bind_retries--)
+	{
+		ret = bind(web_l, (struct sockaddr *) &sa, sizeof(sa));
+		if (ret < 0)
+		{
+			LOG("MAIN: WARNING: bind() for web clients: %s... retrying %d\n",
+					strerror(errno), bind_retries);
+			usleep(1000000);
+		}else
+			break;
+	}
+	if (ret < 0)
+	{
+		LOG("MAIN: WARNING: bind() for web clients failed. running without. no live streaming possible\n");
+		web_state = WEB_ERROR;
+		return;
+	}
+
+	ret = listen(web_l, 8);
+	if (ret < 0)
+	{
+		LOG("ERROR: listen() for web clients: %s\n",
+		    strerror(errno));
+		exit(1);
+	}
+}
+
 void init_sockets(void)
 {
 	init_qm_l_socket();
+	init_web_l_socket();
 }
 
 void init(void)
@@ -363,6 +452,8 @@ void init(void)
 
 	source = SOURCE_LOCAL;
 	frame_duration = 10;  /* us per frame */
+
+	memset(web, -1, MAX_WEB_CLIENTS);
 }
 
 int max_int(int a, int b)
@@ -407,17 +498,20 @@ void mainloop(void)
 			nfds = max_int(nfds, row[i]);
 
 		/* qm queuing manager, max 1 */
-		if (qm_state == QM_NOT_CONNECTED)
+		if (qm_state != QM_ERROR)
 		{
-			FD_SET(qm_l, &rfd);
-			FD_SET(qm_l, &efd);
-			nfds = max_int(nfds, qm_l);
-		}
-		if (qm_state == QM_CONNECTED)
-		{
-			FD_SET(qm, &rfd);
-			FD_SET(qm, &efd);
-			nfds = max_int(nfds, qm);
+			if (qm_state == QM_NOT_CONNECTED)
+			{
+				FD_SET(qm_l, &rfd);
+				FD_SET(qm_l, &efd);
+				nfds = max_int(nfds, qm_l);
+			}
+			if (qm_state == QM_CONNECTED)
+			{
+				FD_SET(qm, &rfd);
+				FD_SET(qm, &efd);
+				nfds = max_int(nfds, qm);
+			}
 		}
 
 		/* is instant streamer client, max 1 */
@@ -435,9 +529,22 @@ void mainloop(void)
 		}
 
 		/* web */
-		FD_SET(web_l, &rfd);
-		FD_SET(web_l, &efd);
-		nfds = max_int(nfds, web_l);
+		if (web_state != WEB_ERROR)
+		{
+			FD_SET(web_l, &rfd);
+			FD_SET(web_l, &efd);
+			nfds = max_int(nfds, web_l);
+
+			for (i=0; i< MAX_WEB_CLIENTS; i++)
+			{
+				if (web[i]>=0)
+				{
+					FD_SET(web[i], &rfd);
+					FD_SET(web[i], &efd);
+					nfds = max_int(nfds, web[i]);
+				}
+			}
+		}
 
 
 		/* select () */
@@ -509,6 +616,18 @@ void mainloop(void)
 					strerror(errno));
 			exit(1);
 		}
+		for (i=0; i< MAX_WEB_CLIENTS; i++)
+		{
+			if (web[i]>=0)
+			{
+				if (FD_ISSET(web[i], &efd))
+				{
+					close(web[i]); /* disregarding errors */
+					web[i] = -1;
+					LOG("WEB: wizard%d stepped into his own trap and seeks for help elsewhere now. mana=852, health=100%%\n", i);
+				}
+			}
+		}
 
 		/* data handling */
 
@@ -542,6 +661,25 @@ void mainloop(void)
 		}
 		if (FD_ISSET(web_l, &rfd))
 			process_web_l_data();
+
+		for (i=0; i< MAX_WEB_CLIENTS; i++)
+		{
+			if (web[i]>=0)
+			{
+				if (FD_ISSET(web[i], &rfd))
+				{
+					/* kill anyone who sends data, stfu   */
+					close(web[i]); /* disregarding errors */
+					web[i] = -1;
+
+					LOG("WEB: ordinary wizard%d tried to hit gigargoyle %ld times. gigargoyle stood still for %ld seconds and won the fight. mana=852, health=100%%\n",
+					   i,
+					   random()&0xac,
+					   (random()&0xb)+1
+					   );
+				}
+			}
+		}
 
 		/* if frame_duration is over run next frame */
 
