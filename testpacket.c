@@ -27,7 +27,7 @@ void send_pkt(pkt_t * p){
 		printf("ERROR: send_pkt(): %s\n", strerror(errno));
 		exit(1);
 	}
-	usleep(2*1000); /* to avoid padded packets (for now) FIXME! */
+	usleep(20*1000); /* to avoid padded packets (for now) FIXME! */
 }
 
 void init_socket(void)

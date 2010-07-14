@@ -103,7 +103,10 @@ void process_qm_l_data(void)  {
 	qm = ret;
 	qm_state = QM_CONNECTED;
 	if (source != SOURCE_IS)
+	{
 		source = SOURCE_QM;
+		flush_fifo();
+	}
 	LOG("MAIN: queuing manager connected from %d.%d.%d.%d:%d\n",
 			(ca.sin_addr.s_addr & 0x000000ff) >>  0,
 			(ca.sin_addr.s_addr & 0x0000ff00) >>  8,

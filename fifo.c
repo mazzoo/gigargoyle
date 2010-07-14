@@ -85,6 +85,7 @@ void flush_fifo(void)
 	fifo_rd = 0;
 	fifo_wr = 0;
 	fifo_state = FIFO_EMPTY;
+	LOG("FIFO: flushing\n");
 }
 
 void init_fifo(void)
@@ -121,6 +122,7 @@ void init_fifo(void)
 
 void fill_fifo_local(void)
 {
+	LOG("FIFO: filling fifo with local animation\n");
 	fp->pkt_len = 8; /* header only, no payload */
 	fp->hdr = VERSION << VERSION_SHIFT; /* header               */
 	fp->hdr |= PKT_MASK_DBL_BUF;        /* as we use it for all */
@@ -138,5 +140,4 @@ void fill_fifo_local(void)
 	{
 		wr_fifo(fp);
 	}
-	//LOG("FIFO: filled fifo with local animation\n");
 }

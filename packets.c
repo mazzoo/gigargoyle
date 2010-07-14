@@ -213,6 +213,7 @@ void set_screen_rnd_col(void)
 
 void flip_double_buffer_on_bus(int b)
 {
+	return;
 	uint8_t bus_buf[9]; //FIXME
 	bus_buf[0] = 0x5c;
 	bus_buf[1] = 0x30;
