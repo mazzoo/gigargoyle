@@ -109,7 +109,10 @@ void set_pixel_xy_rgb8(
 	timestamp = gettimeofday64();
 
 	if (last_timestamp[y] + MIN_GAP_BUS_TRANSFERS > timestamp)
+	{
 		usleep(last_timestamp[y] + MIN_GAP_BUS_TRANSFERS - timestamp);
+		timestamp = gettimeofday64();
+	}
 
 	ret = write(row[y], bus_buf, 9);
 	if (ret != 9)
