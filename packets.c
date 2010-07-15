@@ -240,15 +240,14 @@ void flip_double_buffer(void)
 
 void next_frame(void)
 {
-	if (fifo_state == FIFO_EMPTY)
-	{
-		if (source == SOURCE_LOCAL)
-			fill_fifo_local();
-		return;
-	}
-
 	pkt_t * p;
 	p = rd_fifo();
+
+	if (p == NULL)
+	{
+		LOG("PKTS: next_frame() ran into an empty fifo\n");
+		return;
+	}
 
 	switch(p->hdr & PKT_MASK_TYPE)
 	{

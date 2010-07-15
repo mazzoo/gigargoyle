@@ -44,10 +44,11 @@
 
 #define MAX_WEB_CLIENTS 1024
 
-#define MIN_GAP_BUS_TRANSFERS 1000 /* in us */
+#define STARTUP_FRAME_DURATION 10000 /* in us */
+#define MIN_GAP_BUS_TRANSFERS   1000 /* in us */
 
-#define MISSING_PKTS_TO_LOCAL 10 /* how many "missing" packets
-				  * from either QM or IS do we tolerate
-				  * before switching to local source */
+#define MISSING_PKTS_TO_LOCAL 235 /* how many "missing" packets
+				   * from either QM or IS do we tolerate
+				   * before switching to local source */
 
 #endif /* CONFIG_H */

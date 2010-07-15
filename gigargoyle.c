@@ -451,7 +451,7 @@ void init(void)
 	init_fifo();
 
 	source = SOURCE_LOCAL;
-	frame_duration = 10;  /* us per frame */
+	frame_duration = STARTUP_FRAME_DURATION;  /* us per frame */
 
 	memset(web, -1, MAX_WEB_CLIENTS);
 }

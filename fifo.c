@@ -31,7 +31,7 @@ void wr_fifo(pkt_t * pkt)
 		LOG("FIFO: WARNING: fifo full, dropping packet, hdr %x\n", pkt->hdr);
 		return;
 	}
-	if (fifo_state == FIFO_FULL)
+	if (fifo_state == FIFO_EMPTY)
 		fifo_state = FIFO_HALF;
 
 	if (pkt->pkt_len > FIFO_WIDTH)
@@ -52,7 +52,7 @@ pkt_t * rd_fifo(void)
 	static int running_empty_on_network = 0;
 	if (fifo_state == FIFO_EMPTY)
 	{
-		LOG("FIFO: WARNING: fifo empty, returning NULL\n");
+		//LOG("FIFO: WARNING: fifo empty, returning NULL\n");
 		if (source == SOURCE_LOCAL)
 			fill_fifo_local();
 		else
@@ -60,7 +60,7 @@ pkt_t * rd_fifo(void)
 
 		if (running_empty_on_network >= MISSING_PKTS_TO_LOCAL)
 		{
-			LOG("FIFO: WARNING: filling fifo with local data");
+			LOG("FIFO: WARNING: filling fifo with local animation ");
 			LOG("as we're running empty from the network\n");
 			fill_fifo_local();
 			running_empty_on_network = 0;
