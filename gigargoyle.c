@@ -49,7 +49,6 @@ int is;     /* file handle for instant streamer accept()ed  */
 int is_state = IS_NOT_CONNECTED;
 
 int web_l;  /* file handle for web clients listen()          */
-int web[MAX_WEB_CLIENTS];  /* file handle for web clients accept()ed */
 int web_state = WEB_NOT_CONNECTED;
 
 int daemon_pid;
@@ -425,6 +424,18 @@ void init_sockets(void)
 	init_web_l_socket();
 }
 
+void init_web(void)
+{
+	web = malloc(MAX_WEB_CLIENTS * sizeof(*web));
+	if (!web)
+	{
+		LOG("MAIN: out of memory =(\n");
+		exit(1);
+	}
+	memset(web, -1, MAX_WEB_CLIENTS * sizeof(*web));
+	memset(shadow_screen, 0, ACAB_X*ACAB_Y*3);
+}
+
 void init(void)
 {
 	buf = malloc(BUF_SZ);
@@ -453,7 +464,7 @@ void init(void)
 	source = SOURCE_LOCAL;
 	frame_duration = STARTUP_FRAME_DURATION;  /* us per frame */
 
-	memset(web, -1, MAX_WEB_CLIENTS);
+	init_web();
 }
 
 int max_int(int a, int b)
@@ -684,7 +695,7 @@ void mainloop(void)
 		/* if frame_duration is over run next frame */
 
 		uint64_t tmp64 = gettimeofday64();
-		if ((frame_remaining <= tmp64 - frame_last_time) ||
+		if ((frame_duration + frame_last_time <= tmp64 ) ||
 		    (frame_last_time == 0))
 		{
 			frame_last_time = tmp64;

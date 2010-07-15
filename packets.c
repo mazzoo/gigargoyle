@@ -37,7 +37,7 @@ void in_packet(pkt_t * p, uint32_t plen)
 		return; /* drop very short packets */
 	}
 
-	if (p->pkt_len < plen)
+	if (plen < p->pkt_len )
 	{
 		LOG("PKTS: WARNING: dropping short packet (%d < %d)\n",
 		    p->pkt_len, plen
@@ -115,9 +115,14 @@ void set_pixel_xy_rgb8(
 	}
 
 	ret = write(row[y], bus_buf, 9);
+
 	if (ret != 9)
 		LOG("PKTS: WARNING: write(bus %d) = %d != 9\n", y, ret);
 	last_timestamp[y] = timestamp;
+
+	shadow_screen[x][y][0] = r;
+	shadow_screen[x][y][1] = g;
+	shadow_screen[x][y][2] = b;
 }
 
 void set_pixel_xy_rgb16(
@@ -317,5 +322,26 @@ void next_frame(void)
 
 	if (p->hdr & PKT_MASK_DBL_BUF)
 		flip_double_buffer();
+
+	serve_web_clients();
 }
 
+void serve_web_clients(void)
+{
+	int ret;
+	int i;
+	for (i=0; i<MAX_WEB_CLIENTS; i++)
+	{
+		if (web[i] != -1)
+		{
+			//LOG("PKTS: serving wizard%d\n", i);
+			ret = write(web[i], shadow_screen, ACAB_X*ACAB_Y*3);
+			if (ret != ACAB_X*ACAB_Y*3)
+			{
+				LOG("PKTS: gigargoyle told wizard%d to move aside. she refused and is now dead.\n", i);
+				close(web[i]);
+				web[i] = -1;
+			}
+		}
+	}
+}

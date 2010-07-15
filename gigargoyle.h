@@ -37,6 +37,7 @@ uint32_t frame_duration;  /* us per frame, modified by
                            * PKT_TYPE_SET_DURATION */
 
 int row[4];               /* file handles for the uarts */
+int * web;                /* file handle for web clients accept()ed */
 
 uint8_t tmp_screen8 [ACAB_X][ACAB_Y][3];
 uint8_t tmp_screen16[ACAB_X][ACAB_Y][6];

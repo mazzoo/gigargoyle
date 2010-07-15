@@ -23,6 +23,7 @@
 #define PACKETS_H
 
 #include <stdint.h>
+#include "config.h"
 
 #define VERSION 0x00
 
@@ -84,5 +85,8 @@ typedef struct pkt_s {
 /* prototypes from packets.c */
 void in_packet(pkt_t * p, uint32_t plen);
 void next_frame(void);
+void serve_web_clients(void);
+
+uint8_t shadow_screen[ACAB_X][ACAB_Y][3]; /* for web clients */
 
 #endif /* PACKETS_H */

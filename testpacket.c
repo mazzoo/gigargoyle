@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 #include "packets.h"
 
@@ -27,7 +28,7 @@ void send_pkt(pkt_t * p){
 		printf("ERROR: send_pkt(): %s\n", strerror(errno));
 		exit(1);
 	}
-	usleep(20*1000); /* to avoid padded packets (for now) FIXME! */
+	usleep(10*1000); /* to avoid padded packets (for now) FIXME! */
 }
 
 void init_socket(void)
@@ -50,6 +51,8 @@ void init_socket(void)
 		printf("ERROR: connect(): %s\n", strerror(errno));
 		exit(1);
 	}
+	ret = 1;
+	setsockopt( s, SOL_TCP, TCP_NODELAY, &ret, sizeof(ret));
 }
 
 int main(int argc, char ** argv)
@@ -70,7 +73,7 @@ int main(int argc, char ** argv)
 	p.hdr |= PKT_TYPE_FLIP_DBL_BUF;   /* command: flip double buffer */
 	send_pkt(&p);
 
-	usleep(1000 * 1000);
+//	usleep(1000 * 1000);
 
 	p.hdr &= ~PKT_MASK_TYPE;          /* clear command */
 	p.hdr |= PKT_TYPE_SET_SCREEN_WHT; /* command: white screen */
@@ -78,16 +81,24 @@ int main(int argc, char ** argv)
 	p.hdr &= ~PKT_MASK_TYPE;          /* clear command */
 	p.hdr |= PKT_TYPE_FLIP_DBL_BUF;   /* command: flip double buffer */
 	send_pkt(&p);
-	usleep(1000 * 1000);
+//	usleep(1000 * 1000);
 
 	int i;
+
+	p.hdr &= ~PKT_MASK_TYPE;          /* clear command */
+	p.hdr |= PKT_TYPE_SET_SCREEN_RND_COL; /* command: random color screen */
+	for (i=0; i<19; i++)
+	{
+		send_pkt(&p);
+		usleep(10 * 1000);
+	}
 
 	p.hdr &= ~PKT_MASK_TYPE;          /* clear command */
 	p.hdr |= PKT_TYPE_SET_SCREEN_RND_BW; /* command: random bw screen */
 	for (i=0; i<19; i++)
 	{
 		send_pkt(&p);
-		usleep(100 * 1000);
+		usleep(10 * 1000);
 	}
 
 	p.hdr &= ~PKT_MASK_TYPE;          /* clear command */
@@ -95,7 +106,7 @@ int main(int argc, char ** argv)
 	for (i=0; i<19; i++)
 	{
 		send_pkt(&p);
-		usleep(100 * 1000);
+		usleep(10 * 1000);
 	}
 
 	return 0;
