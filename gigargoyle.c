@@ -66,7 +66,7 @@ void init_qm_l_socket(void);
 
 /* processors of input data from various sources */
 
-void process_row_data(int i) {LOG("row_data()\n");}
+void process_row_data(int i) {/* LOG("row_data()\n"); */}
 void process_is_l_data(void) {LOG("is_l_data()\n");}
 void process_is_data(void)   {LOG("is_data()\n");}
 

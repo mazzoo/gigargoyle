@@ -156,9 +156,6 @@ void set_screen_rgb8(uint8_t s[ACAB_X][ACAB_Y][3])
 {
 	int ix, iy;
 
-        if (arguments.pretend)
-                LOG("Set screen\n");
-
 	for (ix=0; ix < ACAB_X; ix++)
 	{
 		for (iy=0; iy < ACAB_Y; iy++)
