@@ -150,7 +150,6 @@ uint8_t *serialize_packet(pkt_t *p) {
 
 void gg_set_duration(gg_socket *s, unsigned int duration) {
   pkt_t *p;
-  int ret;
 
   uint8_t *packet;
 
@@ -161,9 +160,11 @@ void gg_set_duration(gg_socket *s, unsigned int duration) {
   
   packet = serialize_packet(p);
 
-  ret = write(s->s, packet, p->pkt_len);
-  if (ret != p->pkt_len) {
-    fprintf(stderr, "Warning: Could not send packet\n");
+  int off = 0;
+  int ret = 0;
+  while(ret+off < p->pkt_len) {
+    off += ret;
+    ret = write(s->s, packet+off, p->pkt_len-off);
   }
 
   free(p->data);
@@ -223,28 +224,32 @@ void gg_send_frame(gg_socket *s, gg_frame *f) {
   /* Send data */
   packet = serialize_packet(f->packet);
 
-  ret = write(s->s, packet, f->packet->pkt_len);
-  if (ret != f->packet->pkt_len) {
-    fprintf(stderr, "Warning: Could not send packet: %d, %d\n", ret, f->packet->pkt_len);
+  int off = 0;
+  ret = 0;
+  while(ret+off < f->packet->pkt_len) {
+    off += ret;
+    ret = write(s->s, packet+off, f->packet->pkt_len-off);
   }
 
   free(packet);
 
   /* Send flip command */
-  dblbuf = create_packet(VERSION,
+  /*dblbuf = create_packet(VERSION,
                     PKT_MASK_DBL_BUF | PKT_MASK_RGB8,
                     PKT_TYPE_FLIP_DBL_BUF,
                     0, 0, 0);
   
   packet = serialize_packet(dblbuf);
 
-  ret = write(s->s, packet, dblbuf->pkt_len);
-  if (ret != dblbuf->pkt_len) {
-    fprintf(stderr, "Warning: Could not send packet\n");
-  }
+  off = 0;
+  ret = 0;
+  while(ret+off < dblbuf->pkt_len) {
+    off += ret;
+    ret = write(s->s, packet+off, dblbuf->pkt_len-off);
+  }*/
 
   /* Free used structs */
-  free(dblbuf->data);
-  free(dblbuf);
-  free(packet);
+  //free(dblbuf->data);
+  //free(dblbuf);
+  //free(packet);
 }
