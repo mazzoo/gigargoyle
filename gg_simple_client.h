@@ -80,5 +80,6 @@ pkt_t *create_packet(unsigned int version,
                      unsigned int depth);
 
 uint8_t *serialize_packet(pkt_t *p);
+void send_packet(gg_socket *s, pkt_t *packet);
 
 #endif

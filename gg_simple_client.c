@@ -31,7 +31,7 @@ gg_frame *gg_init_frame(unsigned int cols,
   f->depth = depth;
 
   f->packet = create_packet(VERSION,
-                            PKT_MASK_DBL_BUF | PKT_MASK_RGB8,
+                            PKT_MASK_RGB8,
                             PKT_TYPE_SET_SCREEN,
                             cols, rows, depth);
 
@@ -151,25 +151,15 @@ uint8_t *serialize_packet(pkt_t *p) {
 void gg_set_duration(gg_socket *s, unsigned int duration) {
   pkt_t *p;
 
-  uint8_t *packet;
-
   p = create_packet(VERSION,
-                    PKT_MASK_DBL_BUF | PKT_MASK_RGB8,
+                    PKT_MASK_RGB8,
                     PKT_TYPE_SET_DURATION,
                     0, 0, 0);
   
-  packet = serialize_packet(p);
-
-  int off = 0;
-  int ret = 0;
-  while(ret+off < p->pkt_len) {
-    off += ret;
-    ret = write(s->s, packet+off, p->pkt_len-off);
-  }
+  send_packet(s, p);
 
   free(p->data);
   free(p);
-  free(packet);
 }
 
 void gg_set_pixel_color(gg_frame *f,
@@ -199,57 +189,46 @@ void gg_set_frame_color(gg_frame *f,
 }
 
 void gg_send_command(gg_socket *s, uint8_t opcode) {
-  int ret;
   pkt_t *p;
-  uint8_t *packet;
 
   p = create_packet(VERSION,
-                    PKT_MASK_DBL_BUF | PKT_MASK_RGB8,
+                    PKT_MASK_RGB8,
                     opcode,
                     0, 0, 0);
-  
-  packet = serialize_packet(p);
 
-  ret = write(s->s, packet, p->pkt_len);
-  if (ret != p->pkt_len) {
-    fprintf(stderr, "Warning: Could not send packet\n");
-  }
+  send_packet(s, p);
 }
 
 void gg_send_frame(gg_socket *s, gg_frame *f) {
-  int ret;
-  uint8_t *packet;
-  pkt_t *dblbuf;
-  
-  /* Send data */
-  packet = serialize_packet(f->packet);
-
-  int off = 0;
-  ret = 0;
-  while(ret+off < f->packet->pkt_len) {
-    off += ret;
-    ret = write(s->s, packet+off, f->packet->pkt_len-off);
-  }
-
-  free(packet);
+  send_packet(s, f->packet);
 
   /* Send flip command */
   /*dblbuf = create_packet(VERSION,
                     PKT_MASK_DBL_BUF | PKT_MASK_RGB8,
                     PKT_TYPE_FLIP_DBL_BUF,
                     0, 0, 0);
-  
-  packet = serialize_packet(dblbuf);
 
-  off = 0;
-  ret = 0;
-  while(ret+off < dblbuf->pkt_len) {
-    off += ret;
-    ret = write(s->s, packet+off, dblbuf->pkt_len-off);
-  }*/
+  send_packet(s, dblbuf);
+  */
 
   /* Free used structs */
   //free(dblbuf->data);
   //free(dblbuf);
   //free(packet);
+}
+
+void send_packet(gg_socket *s, pkt_t *packet) {
+  uint8_t *raw_packet;
+  int bytes_sent = 0;
+  int ret = 0;
+
+  raw_packet = serialize_packet(packet);
+
+  while(ret+bytes_sent < packet->pkt_len) {
+    printf("sending chunk\n");
+    bytes_sent += ret;
+    ret = write(s->s, packet+bytes_sent, packet->pkt_len-bytes_sent);
+  }
+
+  free(raw_packet);
 }
