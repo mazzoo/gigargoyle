@@ -188,6 +188,7 @@ void process_qm_l_data(void)  {
 void process_qm_data(void) {
         static int off = 0;
 	int ret;
+	LOG("read\n");
 	ret = read(qm, buf+off, BUF_SZ-off);
 	if (ret == 0)
 	{
@@ -207,14 +208,22 @@ void process_qm_data(void) {
 	p->pkt_len = ntohl(p->pkt_len);
 	p->data = (uint8_t *) &buf[8];
 
-        int ret_pkt = in_packet(p, ret+off);
-	if(ret_pkt == -1)
-            off += ret;
-        else {
-            if(p->pkt_len < plen)
-                memmove(buf, buf + p->pkt_len, plen - p->pkt_len);
-            off = 0;
-        }
+	int plen = ret+off;
+	int ret_pkt;
+        do {
+		ret_pkt = in_packet(p, plen);
+		if(ret_pkt == -1) {
+			LOG("too short\n");
+		    off += plen;
+		} else {
+			LOG("frameproc\n");
+		    if((int)p->pkt_len <= plen) {
+			plen -= (int)p->pkt_len;
+			memmove(buf, buf + p->pkt_len, plen);
+		    }
+		    off = 0;
+		}
+	} while(ret_pkt == 0 && plen != 0);
 }
 
 uint64_t gettimeofday64(void)
@@ -354,8 +363,6 @@ void cleanup(void)
 			    arguments.pid_file,
 			    strerror(errno));
 	}
-
-        /* FIXME close sockets */
 
 	if (logfp)
 		LOG("MAIN: exiting.\n");

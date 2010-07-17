@@ -83,7 +83,7 @@ typedef struct pkt_s {
 #define SOURCE_LOCAL     0x80
 
 /* prototypes from packets.c */
-void in_packet(pkt_t * p, uint32_t plen);
+int in_packet(pkt_t * p, uint32_t plen);
 void next_frame(void);
 void serve_web_clients(void);
 
