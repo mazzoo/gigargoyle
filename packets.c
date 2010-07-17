@@ -33,30 +33,27 @@
 /* Contains parsed command line arguments */
 extern struct arguments arguments;
 
-void in_packet(pkt_t * p, uint32_t plen)
+int in_packet(pkt_t * p, uint32_t plen)
 {
 	if (plen < 8)
 	{
-		LOG("PKTS: WARNING: dropping very short packet (len %d)\n", plen);
-		return; /* drop very short packets */
+		LOG("PKTS: WARNING: got very short packet (len %d)\n", plen);
+		return -1;
 	}
 
 	if (plen < p->pkt_len )
 	{
-		LOG("PKTS: WARNING: dropping short packet (%d < %d)\n",
+		LOG("PKTS: WARNING: got short packet (%d < %d)\n",
 		    p->pkt_len, plen
 		   );
-		return; /* drop short packets */
+		return -1;
 	}
 
 	if ((p->hdr & PKT_MASK_VERSION) != VERSION << VERSION_SHIFT)
 	{
 		LOG("PKTS: WARNING: dropping pkt with invalid version, hdr %x\n", p->hdr);
-		return; /* drop wrong version packets */
+		return -2; /* drop wrong version packets */
 	}
-
-	if (p->pkt_len != plen)
-		LOG("PKTS: FIXME: support padded packets (netcat)\n");
 
 	switch(p->hdr & PKT_MASK_TYPE)
 	{
@@ -82,8 +79,10 @@ void in_packet(pkt_t * p, uint32_t plen)
 			gigargoyle_shutdown(); /* FIXME only from QM, not from IS */
 			break;
 		default:
-			return; /* drop unsupported packages */
+			return 0; /* drop unsupported packages */
 	}
+        
+        return 0;
 }
 
 void set_pixel_xy_rgb8(

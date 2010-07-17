@@ -185,9 +185,10 @@ void process_qm_l_data(void)  {
 	}
 }
 
-void process_qm_data(void)  {
+void process_qm_data(void) {
+        static int off = 0;
 	int ret;
-	ret = read(qm, buf, BUF_SZ);
+	ret = read(qm, buf+off, BUF_SZ-off);
 	if (ret == 0)
 	{
 		LOG("QM closed connection\n");
@@ -200,14 +201,20 @@ void process_qm_data(void)  {
 		    strerror(errno));
 		exit(1);
 	}
-	if (ret < 8) /* FIXME not the netcat way */
-		LOG("MAIN: WARNING: dropping short (%d) packet from QM\n", ret);
 
 	p = (pkt_t *) buf;
 	p->hdr = ntohl(p->hdr);
 	p->pkt_len = ntohl(p->pkt_len);
 	p->data = (uint8_t *) &buf[8];
-	in_packet(p, ret);
+
+        int ret_pkt = in_packet(p, ret+off);
+	if(ret_pkt == -1)
+            off += ret;
+        else {
+            if(p->pkt_len < plen)
+                memmove(buf, buf + p->pkt_len, plen - p->pkt_len);
+            off = 0;
+        }
 }
 
 uint64_t gettimeofday64(void)
