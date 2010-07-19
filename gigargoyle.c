@@ -204,6 +204,8 @@ void process_qm_data(void)  {
 		LOG("MAIN: WARNING: dropping short (%d) packet from QM\n", ret);
 
 	p = (pkt_t *) buf;
+	p->hdr = ntohl(p->hdr);
+	p->pkt_len = ntohl(p->pkt_len);
 	p->data = (uint8_t *) &buf[8];
 	in_packet(p, ret);
 }
