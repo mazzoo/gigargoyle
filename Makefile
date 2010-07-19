@@ -1,9 +1,9 @@
 CFLAGS=-O2 -Wall -g
+OBJS=gigargoyle.o command_line_arguments.o fifo.o packets.o
 
 all:gigargoyle testpacket
 
-gigargoyle:gigargoyle.o packets.o fifo.o
+gigargoyle: $(OBJS)
 
 clean:
-	rm -f gigargoyle testpacket
-	rm -f *.o
+	rm -f gigargoyle $(OBJS)
