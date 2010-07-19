@@ -117,6 +117,7 @@ char args_doc[] = "";
 /* Accepted option */
 struct argp_option options[] = {
         {"pretend", 'p', NULL, 0, "Only pretend to send data to ttys but instead just log sent data"},
+        {"foreground", 'f', NULL, 0, "Stay in foreground; don't daemonize"},
         {"port-qm", 'q', "PORT_QM", 0, "Listening port for the acabspool"},
         {"port-is", 'i', "PORT_IS", 0, "Listening port for instant streaming clients"},
         {"port-web", 'w', "PORT_WEB", 0, "Listening port for web clients"},
@@ -219,6 +220,24 @@ uint64_t gettimeofday64(void)
 	return timestamp;
 }
 
+void open_logfile(void)
+{
+	logfd = open(arguments.log_file,
+	             O_WRONLY | O_CREAT,
+	             S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (logfd < 0)
+	{
+		printf("ERROR: open(%s): %s\n", arguments.log_file, strerror(errno));
+		exit(1);
+	}
+	logfp = fdopen(logfd, "a");
+	if (!logfp)
+	{
+		printf("ERROR: fdopen(%s): %s\n", arguments.log_file, strerror(errno));
+		exit(1);
+	}
+}
+
 /* initialisation */
 
 void daemonize(void)
@@ -257,21 +276,6 @@ void daemonize(void)
 		exit(1);
 	}
 
-	logfd = open(arguments.log_file,
-	             O_WRONLY | O_CREAT,
-	             S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	if (logfd < 0)
-	{
-		printf("ERROR: open(%s): %s\n", arguments.log_file, strerror(errno));
-		exit(1);
-	}
-	logfp = fdopen(logfd, "a");
-	if (!logfp)
-	{
-		printf("ERROR: fdopen(%s): %s\n", arguments.log_file, strerror(errno));
-		exit(1);
-	}
-
 	close(0);
 	close(1);
 	close(2);
@@ -279,7 +283,6 @@ void daemonize(void)
 	daemon_pid = getpid();
 
 	LOG("MAIN: gigargoyle starting up as pid %d\n", daemon_pid);
-
 	int pidfile = open(arguments.pid_file, 
 	                   O_WRONLY | O_CREAT | O_TRUNC,
 	                   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -481,7 +484,20 @@ void init(void)
 		       strerror(errno));
 		exit(1);
 	}
-	daemonize();
+	
+	if (arguments.foreground)
+	{
+		logfd = 0;
+		logfp = stdout;
+	}
+	else
+	{
+		open_logfile();
+		daemonize();
+	}
+	pid_t daemon_pid = getpid();
+	LOG("gigargoyle starting up as pid %d\n", daemon_pid);
+
 	atexit(cleanup);
 	signal(SIGTERM, sighandler);
 	if (!arguments.pretend)

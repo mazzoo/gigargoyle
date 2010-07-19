@@ -7,6 +7,7 @@
 
 void init_arguments(struct arguments *args) {
   args->pretend = 0;
+  args->foreground = 0;
   args->row_0_uart = ROW_0_UART;
   args->row_1_uart = ROW_1_UART;
   args->row_2_uart = ROW_2_UART;
@@ -29,6 +30,9 @@ error_t parse_opt(int key, char *arg, struct argp_state *state) {
   switch (key) {
   case 'p':
     arguments->pretend = 1;
+    break;
+  case 'f':
+    arguments->foreground = 1;
     break;
   case 'q':
     arguments->port_qm = strtol(arg, &endptr, 10);

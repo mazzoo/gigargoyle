@@ -26,6 +26,7 @@
 
 struct arguments {
   int pretend;
+  int foreground;
   int port_qm;
   int port_is;
   int port_web;
