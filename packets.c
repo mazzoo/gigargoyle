@@ -267,6 +267,8 @@ void next_frame(void)
 		case PKT_TYPE_TEXT:
 		case PKT_TYPE_SET_FONT:
 		case PKT_TYPE_SET_SCREEN_BLK:
+                        set_screen_blk();
+                        break;
 		case PKT_TYPE_SET_SCREEN_WHT:
 		case PKT_TYPE_SET_SCREEN_RND_BW:
 			set_screen_rnd_bw();
