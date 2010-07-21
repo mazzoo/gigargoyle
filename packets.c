@@ -28,6 +28,10 @@
 #include "packets.h"
 #include "fifo.h"
 #include "gigargoyle.h"
+#include "command_line_arguments.h"
+
+/* Contains parsed command line arguments */
+extern struct arguments arguments;
 
 void in_packet(pkt_t * p, uint32_t plen)
 {
@@ -151,6 +155,10 @@ void set_screen_blk(void)
 void set_screen_rgb8(uint8_t s[ACAB_X][ACAB_Y][3])
 {
 	int ix, iy;
+
+        if (arguments.pretend)
+                LOG("Set screen\n");
+
 	for (ix=0; ix < ACAB_X; ix++)
 	{
 		for (iy=0; iy < ACAB_Y; iy++)

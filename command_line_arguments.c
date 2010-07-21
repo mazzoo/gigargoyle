@@ -5,6 +5,9 @@
 
 #include "command_line_arguments.h"
 
+/* Contains parsed command line arguments */
+struct arguments arguments;
+
 void init_arguments(struct arguments *args) {
   args->pretend = 0;
   args->foreground = 0;
@@ -30,6 +33,11 @@ error_t parse_opt(int key, char *arg, struct argp_state *state) {
   switch (key) {
   case 'p':
     arguments->pretend = 1;
+    arguments->row_0_uart = "/dev/null";
+    arguments->row_1_uart = "/dev/null";
+    arguments->row_2_uart = "/dev/null";
+    arguments->row_3_uart = "/dev/null";
+
     break;
   case 'f':
     arguments->foreground = 1;

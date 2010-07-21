@@ -109,7 +109,7 @@ void process_web_l_data(void)
 }
 
 /* Contains parsed command line arguments */
-struct arguments arguments;
+extern struct arguments arguments;
 
 char doc[] = "Control a moodlamp matrix using a TCP socket";
 char args_doc[] = "";
@@ -377,6 +377,14 @@ void init_qm_l_socket(void)
 	sa.sin_addr.s_addr = htonl(INADDR_ANY);
 	sa.sin_port        = htons(arguments.port_qm);
 
+        if(setsockopt(qm_l, SOL_SOCKET, SO_REUSEADDR,
+                      (char *)&on,sizeof(on)) < 0)
+        {
+            LOG("ERROR: setsockopt() for queuing manager: %s\n",
+		    strerror(errno));
+		exit(1);
+        }
+
 	int bind_retries = 4;
 	while (bind_retries--)
 	{
@@ -502,8 +510,7 @@ void init(void)
 
 	atexit(cleanup);
 	signal(SIGTERM, sighandler);
-	if (!arguments.pretend)
-		init_uarts();
+        init_uarts();
 	init_sockets();
 	init_fifo();
 
