@@ -20,9 +20,28 @@
 
 int s; /* socket to gigargoyle */
 
+uint8_t *serialize_packet(pkt_t *p) {
+        uint8_t *packet;
+        packet = (uint8_t *)malloc(p->pkt_len);
+
+        uint32_t *packet_hdr = (uint32_t *)packet;
+        *packet_hdr = htonl(p->hdr);
+        
+        uint32_t *packet_len = (uint32_t *)(packet+4);
+        *packet_len = htonl(p->pkt_len);
+ 
+        if (p->pkt_len > 8)
+                memcpy(packet+8, p->data, p->pkt_len-8);
+       
+        return packet;
+}
+
 void send_pkt(pkt_t * p){
 	int ret;
-	ret = write(s, p, p->pkt_len);
+
+        uint8_t *packet = serialize_packet(p);
+ 
+	ret = write(s, packet, p->pkt_len);
 	if (ret != p->pkt_len)
 	{
 		printf("ERROR: send_pkt(): %s\n", strerror(errno));
