@@ -377,8 +377,9 @@ void init_qm_l_socket(void)
 	sa.sin_addr.s_addr = htonl(INADDR_ANY);
 	sa.sin_port        = htons(arguments.port_qm);
 
+	ret = 1;
         if(setsockopt(qm_l, SOL_SOCKET, SO_REUSEADDR,
-                      (char *)&on,sizeof(on)) < 0)
+                      (char *)&ret, sizeof(ret)) < 0)
         {
             LOG("ERROR: setsockopt() for queuing manager: %s\n",
 		    strerror(errno));
