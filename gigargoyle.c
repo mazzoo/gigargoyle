@@ -211,12 +211,18 @@ void process_qm_data(void) {
 	int plen = ret+off;
 	int ret_pkt;
         do {
+                if(off == 0) {
+                    p->hdr = ntohl(p->hdr);
+                    p->pkt_len = ntohl(p->pkt_len);
+                }
+
 		ret_pkt = in_packet(p, plen);
+
 		if(ret_pkt == -1) {
-			LOG("too short\n");
+		    LOG("too short\n");
 		    off += plen;
 		} else {
-			LOG("frameproc\n");
+		    LOG("frameproc\n");
 		    if((int)p->pkt_len <= plen) {
 			plen -= (int)p->pkt_len;
 			memmove(buf, buf + p->pkt_len, plen);
