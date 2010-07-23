@@ -40,8 +40,11 @@ void wr_fifo(pkt_t * pkt)
 		return;
 	}
 
-	memcpy(fifo[fifo_wr], pkt, pkt->pkt_len);
-        pkt->data = (uint8_t *) &(pkt->data);
+	pkt_t *p = (pkt_t *)fifo[fifo_wr];
+
+	memcpy(p, pkt, sizeof(pkt));
+	p->data = (uint8_t *)(p + 1);
+	memcpy(p + 1, pkt->data, pkt->pkt_len - 8);
 
 	fifo_wr++;
 	fifo_wr %= FIFO_DEPTH;
