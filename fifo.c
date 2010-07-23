@@ -39,7 +39,10 @@ void wr_fifo(pkt_t * pkt)
 		LOG("FIFO: WARNING: dropping long packet, hdr %x\n", pkt->hdr);
 		return;
 	}
+
 	memcpy(fifo[fifo_wr], pkt, pkt->pkt_len);
+        pkt->data = (uint8_t *) &(pkt->data);
+
 	fifo_wr++;
 	fifo_wr %= FIFO_DEPTH;
 	if (fifo_wr == fifo_rd)

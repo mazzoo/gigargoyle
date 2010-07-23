@@ -39,8 +39,6 @@
 #include "gigargoyle.h"
 #include "command_line_arguments.h"
 
-pkt_t * p; /* network packet from is or qm */
-
 int qm_l;   /* file handle for the queing manager listen()   */
 int qm;     /* file handle for the queing manager accept()ed */
 int qm_state = QM_NOT_CONNECTED;
@@ -116,20 +114,20 @@ char args_doc[] = "";
 
 /* Accepted option */
 struct argp_option options[] = {
-        {"pretend", 'p', NULL, 0, "Only pretend to send data to ttys but instead just log sent data"},
-        {"foreground", 'f', NULL, 0, "Stay in foreground; don't daemonize"},
-        {"port-qm", 'q', "PORT_QM", 0, "Listening port for the acabspool"},
-        {"port-is", 'i', "PORT_IS", 0, "Listening port for instant streaming clients"},
-        {"port-web", 'w', "PORT_WEB", 0, "Listening port for web clients"},
-        {"acab-x", 'x', "WIDTH", 0, "Width of matrix in pixels"},
-        {"acab-y", 'y', "HEIGHT", 0, "Height of matrix in pixels"},
-        {"uart-0", 127+1, "UART_0", 0, "Path to uart-0"},
-        {"uart-1", 127+2, "UART_1", 0, "Path to uart-1"},
-        {"uart-2", 127+3, "UART_2", 0, "Path to uart-2"},
-        {"uart-3", 127+4, "UART_3", 0, "Path to uart-3"},
-        {"pidfile", 127+5, "PIDFILE", 0, "Path to pid file"},
-        {"logfile", 'l', "LOGFILE", 0, "Path to log file"},
-        {0}
+	{"pretend", 'p', NULL, 0, "Only pretend to send data to ttys but instead just log sent data"},
+	{"foreground", 'f', NULL, 0, "Stay in foreground; don't daemonize"},
+	{"port-qm", 'q', "PORT_QM", 0, "Listening port for the acabspool"},
+	{"port-is", 'i', "PORT_IS", 0, "Listening port for instant streaming clients"},
+	{"port-web", 'w', "PORT_WEB", 0, "Listening port for web clients"},
+	{"acab-x", 'x', "WIDTH", 0, "Width of matrix in pixels"},
+	{"acab-y", 'y', "HEIGHT", 0, "Height of matrix in pixels"},
+	{"uart-0", 127+1, "UART_0", 0, "Path to uart-0"},
+	{"uart-1", 127+2, "UART_1", 0, "Path to uart-1"},
+	{"uart-2", 127+3, "UART_2", 0, "Path to uart-2"},
+	{"uart-3", 127+4, "UART_3", 0, "Path to uart-3"},
+	{"pidfile", 127+5, "PIDFILE", 0, "Path to pid file"},
+	{"logfile", 'l', "LOGFILE", 0, "Path to log file"},
+	{0}
 };
 
 /* Argument parser */
@@ -186,9 +184,11 @@ void process_qm_l_data(void)  {
 }
 
 void process_qm_data(void) {
-        static int off = 0;
+	pkt_t p;
+	pkt_t *pt;
+	static int off = 0;
 	int ret;
-	LOG("read\n");
+
 	ret = read(qm, buf+off, BUF_SZ-off);
 	if (ret == 0)
 	{
@@ -203,31 +203,25 @@ void process_qm_data(void) {
 		exit(1);
 	}
 
-	p = (pkt_t *) buf;
-	p->hdr = ntohl(p->hdr);
-	p->pkt_len = ntohl(p->pkt_len);
-	p->data = (uint8_t *) &buf[8];
+	pt = (pkt_t *) buf;
 
 	int plen = ret+off;
 	int ret_pkt;
         do {
-                if(off == 0) {
-                    p->hdr = ntohl(p->hdr);
-                    p->pkt_len = ntohl(p->pkt_len);
-                }
+		p.hdr = ntohl(pt->hdr);
+		p.pkt_len = ntohl(pt->pkt_len);
+		p.data = (uint8_t *) &(pt->data);
 
-		ret_pkt = in_packet(p, plen);
+		ret_pkt = in_packet(&p, plen);
 
 		if(ret_pkt == -1) {
-		    LOG("too short\n");
-		    off += plen;
+			off += plen;
 		} else {
-		    LOG("frameproc\n");
-		    if((int)p->pkt_len <= plen) {
-			plen -= (int)p->pkt_len;
-			memmove(buf, buf + p->pkt_len, plen);
-		    }
-		    off = 0;
+			if((int)p.pkt_len <= plen) {
+				plen -= (int)p.pkt_len;
+				memmove(buf, buf + p.pkt_len, plen);
+			}
+			off = 0;
 		}
 	} while(ret_pkt == 0 && plen != 0);
 }
@@ -400,10 +394,10 @@ void init_qm_l_socket(void)
 	sa.sin_port        = htons(arguments.port_qm);
 
 	ret = 1;
-        if(setsockopt(qm_l, SOL_SOCKET, SO_REUSEADDR,
-                      (char *)&ret, sizeof(ret)) < 0)
-        {
-            LOG("ERROR: setsockopt() for queuing manager: %s\n",
+	if(setsockopt(qm_l, SOL_SOCKET, SO_REUSEADDR,
+				(char *)&ret, sizeof(ret)) < 0)
+	{
+		LOG("ERROR: setsockopt() for queuing manager: %s\n",
 		    strerror(errno));
 		exit(1);
         }
@@ -509,7 +503,7 @@ void init(void)
 		       strerror(errno));
 		exit(1);
 	}
-	p = malloc(sizeof(pkt_t));
+	pkt_t *p = malloc(sizeof(pkt_t));
 	if (!p)
 	{
 		printf("ERROR: couldn't alloc %d packet bytes: %s\n",

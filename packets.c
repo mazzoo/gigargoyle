@@ -41,18 +41,18 @@ int in_packet(pkt_t * p, uint32_t plen)
 		return -1;
 	}
 
+	if ((p->hdr & PKT_MASK_VERSION) != VERSION << VERSION_SHIFT)
+	{
+		LOG("PKTS: WARNING: dropping pkt with invalid version, hdr %x\n", p->hdr);
+		return -2; /* drop wrong version packets */
+	}
+
 	if (plen < p->pkt_len )
 	{
 		LOG("PKTS: WARNING: got short packet (%d < %d)\n",
 		    p->pkt_len, plen
 		   );
 		return -1;
-	}
-
-	if ((p->hdr & PKT_MASK_VERSION) != VERSION << VERSION_SHIFT)
-	{
-		LOG("PKTS: WARNING: dropping pkt with invalid version, hdr %x\n", p->hdr);
-		return -2; /* drop wrong version packets */
 	}
 
 	switch(p->hdr & PKT_MASK_TYPE)
