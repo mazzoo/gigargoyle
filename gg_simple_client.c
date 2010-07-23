@@ -227,7 +227,7 @@ void send_packet(gg_socket *s, pkt_t *packet) {
   while(ret+bytes_sent < packet->pkt_len) {
     printf("sending chunk\n");
     bytes_sent += ret;
-    ret = write(s->s, packet+bytes_sent, packet->pkt_len-bytes_sent);
+    ret = write(s->s, raw_packet+bytes_sent, packet->pkt_len-bytes_sent);
   }
 
   free(raw_packet);
