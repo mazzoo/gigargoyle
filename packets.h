@@ -87,6 +87,6 @@ int in_packet(pkt_t * p, uint32_t plen);
 void next_frame(void);
 void serve_web_clients(void);
 
-uint8_t shadow_screen[ACAB_X][ACAB_Y][3]; /* for web clients */
+uint8_t shadow_screen[ACAB_Y][ACAB_X][3]; /* for web clients */
 
 #endif /* PACKETS_H */

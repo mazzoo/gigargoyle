@@ -22,6 +22,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <arpa/inet.h>
 #include <stdlib.h>
 
 #include "config.h"
@@ -86,9 +87,9 @@ int in_packet(pkt_t * p, uint32_t plen)
 }
 
 void set_pixel_xy_rgb8(
-                  uint16_t r,
-                  uint16_t g,
-                  uint16_t b,
+                  uint8_t r,
+                  uint8_t g,
+                  uint8_t b,
                   uint16_t x,
                   uint16_t y
                  ){
@@ -142,44 +143,44 @@ void set_pixel_xy_rgb16(
 void set_screen_blk(void)
 {
 	int ix, iy;
-	for (ix=0; ix < ACAB_X; ix++)
+	for (iy=0; iy < ACAB_Y; iy++)
 	{
-		for (iy=0; iy < ACAB_Y; iy++)
+		for (ix=0; ix < ACAB_X; ix++)
 		{
 			set_pixel_xy_rgb8(0, 0, 0, ix, iy);
 		}
 	}
 }
 
-void set_screen_rgb8(uint8_t s[ACAB_X][ACAB_Y][3])
+void set_screen_rgb8(uint8_t s[ACAB_Y][ACAB_X][3])
 {
 	int ix, iy;
 
-	for (ix=0; ix < ACAB_X; ix++)
+	for (iy=0; iy < ACAB_Y; iy++)
 	{
-		for (iy=0; iy < ACAB_Y; iy++)
+		for (ix=0; ix < ACAB_X; ix++)
 		{
 			set_pixel_xy_rgb8(
-			                s[ix][iy][0],
-			                s[ix][iy][1],
-			                s[ix][iy][2],
+			                s[iy][ix][0],
+			                s[iy][ix][1],
+			                s[iy][ix][2],
 					ix, iy
 				    );
 		}
 	}
 }
 
-void set_screen_rgb16(uint16_t s[ACAB_X][ACAB_Y][3])
+void set_screen_rgb16(uint16_t s[ACAB_Y][ACAB_X][3])
 {
 	int ix, iy;
-	for (ix=0; ix < ACAB_X; ix++)
+	for (iy=0; iy < ACAB_Y; iy++)
 	{
-		for (iy=0; iy < ACAB_Y; iy++)
+		for (ix=0; ix < ACAB_X; ix++)
 		{
 			set_pixel_xy_rgb16(
-			                s[ix][iy][0],
-			                s[ix][iy][1],
-			                s[ix][iy][2],
+			                s[iy][ix][0],
+			                s[iy][ix][1],
+			                s[iy][ix][2],
 					ix, iy
 				    );
 		}
@@ -250,6 +251,13 @@ void flip_double_buffer(void)
 void next_frame(void)
 {
 	pkt_t * p;
+	/*
+	 * yeah, we use goto here! deal with it!
+	 * problem: we don't want to wait after processing a control packet,
+	 *          like setting framerate or duration
+	 */
+again:
+
 	p = rd_fifo();
 
 	if (p == NULL)
@@ -285,7 +293,7 @@ void next_frame(void)
 					LOG(" %d != %d\n", p->pkt_len, 8 + 2 * 3 * ACAB_X * ACAB_Y);
 					return;
 				}
-				set_screen_rgb16((uint16_t (*)[ACAB_Y][3])p->data);
+				set_screen_rgb16((uint16_t (*)[ACAB_X][3])p->data);
 			}
 			if (p->hdr & PKT_MASK_RGB8)
 			{
@@ -295,7 +303,7 @@ void next_frame(void)
 					LOG(" %d != %d\n", p->pkt_len, 8 + 3 * ACAB_X * ACAB_Y);
 					return;
 				}
-				set_screen_rgb8((uint8_t (*)[ACAB_Y][3])p->data);
+				set_screen_rgb8((uint8_t (*)[ACAB_X][3])p->data);
 			}
 
 			break;
@@ -307,7 +315,7 @@ void next_frame(void)
 				return;
 			}
 			frame_duration = 1000000 / (*((uint32_t *)p->data));
-			break;
+			goto again;
 
 		case PKT_TYPE_SET_DURATION:
 			if (p->pkt_len != 12)
@@ -315,8 +323,8 @@ void next_frame(void)
 				LOG("PKTS: WARNING: dropping short SET_DURATION pkt\n");
 				return;
 			}
-			frame_duration = *((uint32_t *)p->data);
-			break;
+			frame_duration = ntohl(*((uint32_t *)p->data));
+			goto again;
 
 		/* out-of-band immediate commands follow */
 		/* but were handled already async when entering gigargoyle, see in_packet() */
