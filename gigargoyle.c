@@ -233,7 +233,7 @@ uint64_t gettimeofday64(void)
 	gettimeofday(&tv, NULL);
 	timestamp  =  tv.tv_sec;
 	timestamp +=  tv.tv_usec / 1000000;
-	timestamp <<= 32;
+	timestamp *= 1000000;
 	timestamp +=  tv.tv_usec % 1000000;
 	return timestamp;
 }
@@ -769,8 +769,8 @@ void mainloop(void)
 		    (frame_last_time == 0))
 		{
 			frame_last_time = tmp64;
-			frame_remaining = frame_duration;
 			next_frame();
+			frame_remaining = frame_duration;
 		}else{
 			frame_remaining = frame_last_time + frame_duration - tmp64;
 		}

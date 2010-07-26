@@ -124,9 +124,9 @@ void set_pixel_xy_rgb8(
 		LOG("PKTS: WARNING: write(bus %d) = %d != 9\n", y, ret);
 	last_timestamp[y] = timestamp;
 
-	shadow_screen[x][y][0] = r;
-	shadow_screen[x][y][1] = g;
-	shadow_screen[x][y][2] = b;
+	shadow_screen[y][x][0] = r;
+	shadow_screen[y][x][1] = g;
+	shadow_screen[y][x][2] = b;
 }
 
 void set_pixel_xy_rgb16(
@@ -190,19 +190,19 @@ void set_screen_rgb16(uint16_t s[ACAB_Y][ACAB_X][3])
 void set_screen_rnd_bw(void)
 {
 	int ix, iy;
-	for (ix=0; ix < ACAB_X; ix++)
+	for (iy=0; iy < ACAB_Y; iy++)
 	{
-		for (iy=0; iy < ACAB_Y; iy++)
+		for (ix=0; ix < ACAB_X; ix++)
 		{
 			if (random()&1)
 			{
-				tmp_screen8[ix][iy][0] = 0xff;
-				tmp_screen8[ix][iy][1] = 0xff;
-				tmp_screen8[ix][iy][2] = 0xff;
+				tmp_screen8[iy][ix][0] = 0xff;
+				tmp_screen8[iy][ix][1] = 0xff;
+				tmp_screen8[iy][ix][2] = 0xff;
 			}else{
-				tmp_screen8[ix][iy][0] = 0x00;
-				tmp_screen8[ix][iy][1] = 0x00;
-				tmp_screen8[ix][iy][2] = 0x00;
+				tmp_screen8[iy][ix][0] = 0x00;
+				tmp_screen8[iy][ix][1] = 0x00;
+				tmp_screen8[iy][ix][2] = 0x00;
 			}
 		}
 	}
@@ -212,13 +212,13 @@ void set_screen_rnd_bw(void)
 void set_screen_rnd_col(void)
 {
 	int ix, iy;
-	for (ix=0; ix < ACAB_X; ix++)
+	for (iy=0; iy < ACAB_Y; iy++)
 	{
-		for (iy=0; iy < ACAB_Y; iy++)
+		for (ix=0; ix < ACAB_X; ix++)
 		{
-			tmp_screen8[ix][iy][0] = random();
-			tmp_screen8[ix][iy][1] = random();
-			tmp_screen8[ix][iy][2] = random();
+			tmp_screen8[iy][ix][0] = random();
+			tmp_screen8[iy][ix][1] = random();
+			tmp_screen8[iy][ix][2] = random();
 		}
 	}
 	set_screen_rgb8(tmp_screen8);
