@@ -169,10 +169,11 @@ void gg_set_pixel_color(gg_frame *f,
                         unsigned char g,
                         unsigned char b) {
   uint8_t *data = f->packet->data;
-
-  *(data + row*f->cols*f->depth + col*f->depth + 0) = r;
-  *(data + row*f->cols*f->depth + col*f->depth + 1) = g;
-  *(data + row*f->cols*f->depth + col*f->depth + 2) = b;
+  if (col < f->cols && row < f->rows) {
+    *(data + row*f->cols*f->depth + col*f->depth + 0) = r;
+    *(data + row*f->cols*f->depth + col*f->depth + 1) = g;
+    *(data + row*f->cols*f->depth + col*f->depth + 2) = b;
+  }
 }
 
 void gg_set_frame_color(gg_frame *f,
@@ -225,7 +226,6 @@ void send_packet(gg_socket *s, pkt_t *packet) {
   raw_packet = serialize_packet(packet);
 
   while(ret+bytes_sent < packet->pkt_len) {
-    printf("sending chunk\n");
     bytes_sent += ret;
     ret = write(s->s, raw_packet+bytes_sent, packet->pkt_len-bytes_sent);
   }

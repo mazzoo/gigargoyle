@@ -5,7 +5,7 @@
 
 #define COLS 24
 #define ROWS 4
-#define FRAME_DURATION 1.0f/5*1e6
+#define FRAME_DURATION 1.0f/30*1e3
 
 int main(int argc, char *argv[]) {
   gg_frame *f;

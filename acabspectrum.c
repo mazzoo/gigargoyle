@@ -20,13 +20,34 @@
 
 #define COLS 24
 #define ROWS 4
-#define FRAME_DURATION 1.0f/30*1e6
+#define FRAME_DURATION 1.0f/30*1e3
 
 jack_port_t *input_port;
 jack_port_t *output_port;
 jack_client_t *client;
 gg_frame *frame;
-gg_socket *s;
+
+int f_to_z(double f) {
+  return 13.0*atan(.00076*f)+3.5*atan((f/7500.0)*(f/7500.0));
+}
+
+double z_to_f(int z) {
+  double map[] = {0, 50, 150, 250, 350, 450, 570, 700, 840, 1000, 1170, 1370, 1600, 1850, 2150, 2500, 2900, 3400, 4000, 4800, 5800, 7000, 8500, 10500, 13500, 20500, 27000};
+  return map[z];
+}
+
+void interp_color(int ri1, int gi1, int bi1,
+                  int ri2, int gi2, int bi2,
+                  int *ro, int *go, int *bo,
+                  float lambda) {
+  *ro = lambda * ri1 + (1-lambda) * ri2;
+  *go = lambda * gi1 + (1-lambda) * gi2;
+  *bo = lambda * bi1 + (1-lambda) * bi2;
+}
+
+  fftw_complex *in_cplx, *out_cplx;
+  fftw_plan p;
+
 
 /**
  * The process callback for this JACK application is called in a
@@ -41,67 +62,84 @@ process (jack_nframes_t nframes, void *arg)
 {
   jack_default_audio_sample_t *in, *out;
 
-  fftw_complex *in_cplx, *out_cplx;
-  fftw_plan p;
 
   int i;
-	
   in = jack_port_get_buffer (input_port, nframes);
   out = jack_port_get_buffer (output_port, nframes);
   memcpy (out, in,
           sizeof (jack_default_audio_sample_t) * nframes);
         
-  in_cplx = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nframes);
-  out_cplx = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * nframes);
-
   for (i = 0; i < nframes; ++i){
     /* Hamming and log*/
     in_cplx[i][0] = log((0.54-0.46*sin(2*M_PI*in[i]/(nframes-1)))+1);
     in_cplx[i][1] = 0.0;
   }
 
-  p = fftw_plan_dft_1d(nframes, in_cplx, out_cplx, FFTW_FORWARD, FFTW_ESTIMATE);
   fftw_execute(p); /* repeat as needed */
 
   double acc = 0;
   int log_idx = 0;
+  double f = 0;
+  int z = 0;
 
-  /* gg_set_frame_color(frame, 0, 0, 0); */
+  gg_set_frame_color(frame, 0, 0, 0);
 
-  for (i = 0; i < 40; ++i){
-    /* log f scale */
-    log_idx = exp(i/12.0);
-    if (log_idx > nframes/2) {
-      log_idx = nframes-1;
-    };
-          
-    double val = sqrt(out_cplx[i][0]*out_cplx[i][0] + out_cplx[i][1]*out_cplx[i][1]);
+  for (i = 0; i < 512; ++i){
+    double val = out_cplx[i][0]*out_cplx[i][0] + out_cplx[i][1]*out_cplx[i][1];
     acc += val;
-          
-    if (i > log_idx) {
-      int j;
-      int col = acc*100;
-      if (col > 4) col = 4;
 
-      printf("\e[%dm%02d\e[0m", (int)(acc*100)+30, (int)col);
+    f = i/512.0*22.05e3;
+
+    /* time to add up */
+    if (f > z_to_f(z)) {
+      acc = 100*sqrt(acc);
+      
+      printf("\e[%dm%1d\e[0m", (int)(acc+30), 0);
+
+      int col = 0;
+      col = 4*atan(acc/10.0);
+      if (col > 4) col = 4;
+      
+      int j;
       for (j = 0; j < 4; ++j) {
         if (j < col) {
-          gg_set_pixel_color(frame, i, 3-j, 255, 255, 255);
+          int r, g, b;
+          /* interp_color(0, 255, 0, */
+          /*              255, 0, 0, */
+          /*              &r, &g, &b, */
+          /*              atan(acc/10.0)); */
+          switch (j) {
+          case 0:
+          case 1:
+            r = 0;
+            g = 255;
+            b = 0;
+            break;
+          case 2:
+            r = 127;
+            g = 127;
+            b = 0;
+            break;
+          case 3:
+            r = 255;
+            g = 0;
+            b = 0;
+            break;
+          }
+          gg_set_pixel_color(frame, z, 3-j, r, g, b);
         } else {
-          gg_set_pixel_color(frame, i, 3-j, 0, 0, 0);
+          gg_set_pixel_color(frame, z, 3-j, 0, 0, 0);
         }
+        /* gg_set_pixel_color(frame, z, j, acc*3, acc*3, acc*3); */
       }
-      
+
+      ++z;
       acc = 0;
     }
   }
-  if (i > log_idx) {
-    gg_send_frame(s, frame);
-    printf("\n");
-  }
 
-  fftw_destroy_plan(p);
-  fftw_free(in_cplx); fftw_free(out_cplx);
+  gg_send_frame((gg_socket *)arg, frame);
+  printf("\n");
 
   return 0;      
 }
@@ -113,6 +151,9 @@ process (jack_nframes_t nframes, void *arg)
 void
 jack_shutdown (void *arg)
 {
+  fftw_destroy_plan(p);
+  fftw_free(in_cplx); fftw_free(out_cplx);
+
   exit (1);
 }
 
@@ -124,11 +165,12 @@ main (int argc, char *argv[])
   const char *server_name = NULL;
   jack_options_t options = JackNullOption;
   jack_status_t status;
-	
+  gg_socket *gg_socket;
+
   /* Open connection to ggg */
   frame = gg_init_frame(COLS, ROWS, 3);
-  s = gg_init_socket("localhost", 0xabac);
-  gg_set_duration(s, FRAME_DURATION);
+  gg_socket = gg_init_socket("localhost", 0xabac);
+  gg_set_duration(gg_socket, FRAME_DURATION);
 
   /* open a client connection to the JACK server */
   client = jack_client_open (client_name, options, &status, server_name);
@@ -152,7 +194,7 @@ main (int argc, char *argv[])
      there is work to be done.
   */
 
-  jack_set_process_callback (client, process, 0);
+  jack_set_process_callback (client, process, gg_socket);
 
   /* tell the JACK server to call `jack_shutdown()' if
      it ever shuts down, either entirely, or if it
@@ -180,6 +222,13 @@ main (int argc, char *argv[])
     fprintf(stderr, "no more JACK ports available\n");
     exit (1);
   }
+
+
+  /* FFTW */
+  in_cplx = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 1024);
+  out_cplx = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * 1024);
+
+  p = fftw_plan_dft_1d(1024, in_cplx, out_cplx, FFTW_FORWARD, FFTW_ESTIMATE);
 
   /* Tell the JACK server that we are ready to roll.  Our
    * process() callback will start running now. */
