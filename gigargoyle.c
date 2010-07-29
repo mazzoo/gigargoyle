@@ -562,16 +562,14 @@ void mainloop(void)
 	while(0Xacab)
 	{
 		/* prepare for select */
-		tv.tv_sec  = 0;
-		tv.tv_usec = frame_remaining;
+		tv.tv_sec  = frame_remaining / 1e6;
+		tv.tv_usec = frame_remaining % (uint32_t)1e6;
 
 		FD_ZERO(&rfd);
 		FD_ZERO(&wfd);
 		FD_ZERO(&efd);
 
 		/* row */
-		for (i=0; i<4; i++)
-			FD_SET(row[i], &rfd);
 		for (i=0; i<4; i++)
 			FD_SET(row[i], &efd);
 		nfds = -1;
