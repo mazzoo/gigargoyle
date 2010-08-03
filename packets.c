@@ -98,6 +98,14 @@ void set_pixel_xy_rgb8(
 
 	uint64_t       timestamp;
 
+	shadow_screen[y][x][0] = r;
+	shadow_screen[y][x][1] = g;
+	shadow_screen[y][x][2] = b;
+
+        /* Mapping hack */
+        if(y % 2 == 1)
+          x = ACAB_X - 1 - x;
+
 	uint8_t bus_buf[9];
 	bus_buf[0] = 0x5c;
 	bus_buf[1] = 0x30;
@@ -123,10 +131,6 @@ void set_pixel_xy_rgb8(
 	if (ret != 9)
 		LOG("PKTS: WARNING: write(bus %d) = %d != 9\n", y, ret);
 	last_timestamp[y] = timestamp;
-
-	shadow_screen[y][x][0] = r;
-	shadow_screen[y][x][1] = g;
-	shadow_screen[y][x][2] = b;
 }
 
 void set_pixel_xy_rgb16(
@@ -160,6 +164,7 @@ void set_screen_rgb8(uint8_t s[ACAB_Y][ACAB_X][3])
 	{
 		for (ix=0; ix < ACAB_X; ix++)
 		{
+			/* LOG("%x %x %x, ", s[ix][iy][0], s[ix][iy][1], s[ix][iy][2]); */
 			set_pixel_xy_rgb8(
 			                s[iy][ix][0],
 			                s[iy][ix][1],
