@@ -447,6 +447,15 @@ void init_web_l_socket(void)
 	sa.sin_addr.s_addr = htonl(INADDR_ANY);
 	sa.sin_port        = htons(PORT_WEB);
 
+	ret = 1;
+	if(setsockopt(web_l, SOL_SOCKET, SO_REUSEADDR,
+				(char *)&ret, sizeof(ret)) < 0)
+	{
+		LOG("ERROR: setsockopt() for web: %s\n",
+		    strerror(errno));
+		exit(1);
+        }
+
 	int bind_retries = 4;
 	while (bind_retries--)
 	{
