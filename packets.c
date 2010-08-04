@@ -349,17 +349,48 @@ void serve_web_clients(void)
 {
 	int ret;
 	int i;
+
+	struct timeval tv;
+	tv.tv_sec  = 0;
+	tv.tv_usec = 0;
+
+	fd_set rfd;
+	fd_set wfd;
+	fd_set efd;
+
 	for (i=0; i<MAX_WEB_CLIENTS; i++)
 	{
 		if (web[i] != -1)
 		{
-			//LOG("PKTS: serving wizard%d\n", i);
-			ret = write(web[i], shadow_screen, ACAB_X*ACAB_Y*3);
-			if (ret != ACAB_X*ACAB_Y*3)
+			FD_ZERO(&rfd);
+			FD_ZERO(&wfd);
+			FD_ZERO(&efd);
+
+			FD_SET(web[i], &wfd);
+			FD_SET(web[i], &efd);
+
+			select(web[i]+1, &rfd, &wfd, &efd, &tv);
+
+			if (FD_ISSET(web[i], &efd))
 			{
-				LOG("PKTS: gigargoyle told wizard%d to move aside. she refused and is now dead.\n", i);
 				close(web[i]);
 				web[i] = -1;
+				LOG("WEB: wizard%d disagrees no more\n", i);
+			}
+
+			if (FD_ISSET(web[i], &wfd))
+			{
+				ret = write(web[i], shadow_screen, ACAB_X*ACAB_Y*3);
+				if (ret != ACAB_X*ACAB_Y*3)
+				{
+					LOG("PKTS: gigargoyle told wizard%d to move aside. she refused and is now dead.\n", i);
+					close(web[i]);
+					web[i] = -1;
+				}
+			}else{
+				close(web[i]);
+				web[i] = -1;
+				LOG("WEB: wizard%d got some special treatment\n", i);
 			}
 		}
 	}
