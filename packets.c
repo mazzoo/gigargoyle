@@ -51,7 +51,7 @@ int in_packet(pkt_t * p, uint32_t plen)
 	if (plen < p->pkt_len )
 	{
 		LOG("PKTS: WARNING: got short packet (%d < %d)\n",
-		    pkt_len, p->plen
+		    plen, p->pkt_len
 		   );
 		return -1;
 	}
