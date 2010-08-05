@@ -23,6 +23,7 @@
 #include <stdlib.h>
 
 #include "fifo.h"
+#include "idle_image.h"
 
 void wr_fifo(pkt_t * pkt)
 {
@@ -129,21 +130,13 @@ void init_fifo(void)
 void fill_fifo_local(void)
 {
 	LOG("FIFO: filling fifo with local animation\n");
-	fp->pkt_len = 8; /* header only, no payload */
-	fp->hdr = VERSION << VERSION_SHIFT; /* header               */
-	fp->hdr |= PKT_MASK_DBL_BUF;        /* as we use it for all */
-	fp->hdr |= PKT_MASK_RGB8;           /* following packets    */
-
-	fp->hdr |= PKT_TYPE_SET_SCREEN_BLK; /* command: black screen */
-
-	wr_fifo(fp);
-
-	fp->hdr &= ~PKT_MASK_TYPE;          /* clear command */
-	fp->hdr |= PKT_TYPE_SET_SCREEN_RND_BW; /* command: random bw screen */
-
 	int i;
-	for (i=1; i < FIFO_DEPTH; i++)
+	for (i=0; i<IDLE_FRAMES; i++)
 	{
+		fp->hdr     = ii[i].ph;
+		fp->pkt_len = ii[i].pl;
+		fp->data    = (uint8_t *)(fp + 1);
+		memcpy(fp->data, ii[i].p, ii[i].pl-8);
 		wr_fifo(fp);
 	}
 }
