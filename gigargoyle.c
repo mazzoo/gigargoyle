@@ -602,6 +602,7 @@ void mainloop(void)
 			}
 		}
 
+#if 0 /* FIXME: IS */
 		/* is instant streamer client, max 1 */
 		if (is_state == IS_NOT_CONNECTED)
 		{
@@ -615,6 +616,7 @@ void mainloop(void)
 			FD_SET(is, &efd);
 			nfds = max_int(nfds, is);
 		}
+#endif
 
 		/* web */
 		if (web_state != WEB_ERROR)
@@ -678,6 +680,7 @@ void mainloop(void)
 			}
 		}
 
+#if 0 /* FIXME: IS */
 		/* is instant streamer client, max 1 */
 		if (is_state == IS_NOT_CONNECTED)
 		{
@@ -697,6 +700,7 @@ void mainloop(void)
 				exit(1);
 			}
 		}
+#endif
 
 		if (FD_ISSET(web_l, &efd))
 		{
@@ -737,6 +741,7 @@ void mainloop(void)
 				process_qm_data();
 		}
 
+#if 0 /* FIXME: IS */
 		if (is_state == IS_NOT_CONNECTED)
 		{
 			if (FD_ISSET(is_l, &rfd))
@@ -747,6 +752,7 @@ void mainloop(void)
 			if (FD_ISSET(is, &rfd))
 				process_is_data();
 		}
+#endif
 		if (FD_ISSET(web_l, &rfd))
 			process_web_l_data();
 
