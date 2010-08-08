@@ -87,6 +87,7 @@ int in_packet(pkt_t * p, uint32_t plen)
 }
 
 void set_pixel_xy_rgb8(
+                  uint32_t hdr,
                   uint8_t r,
                   uint8_t g,
                   uint8_t b,
@@ -118,6 +119,9 @@ void set_pixel_xy_rgb8(
 	bus_buf[8] = 0x31;
 	int ret;
 
+	if (hdr & PKT_MASK_DBL_BUF)
+		bus_buf[3] = 'P';
+
 	timestamp = gettimeofday64();
 
 	if (last_timestamp[y] + MIN_GAP_BUS_TRANSFERS > timestamp)
@@ -134,6 +138,7 @@ void set_pixel_xy_rgb8(
 }
 
 void set_pixel_xy_rgb16(
+                  uint32_t hdr,
                   uint16_t r,
                   uint16_t g,
                   uint16_t b,
@@ -141,7 +146,7 @@ void set_pixel_xy_rgb16(
                   uint16_t y
                  ){
 	/* FIXME */
-	set_pixel_xy_rgb8(r, g, b, x, y);
+	set_pixel_xy_rgb8(hdr, r, g, b, x, y);
 }
 
 void set_screen_blk(void)
@@ -151,12 +156,12 @@ void set_screen_blk(void)
 	{
 		for (ix=0; ix < ACAB_X; ix++)
 		{
-			set_pixel_xy_rgb8(0, 0, 0, ix, iy);
+			set_pixel_xy_rgb8(0, 0, 0, 0, ix, iy); /* FIXME 0 */
 		}
 	}
 }
 
-void set_screen_rgb8(uint8_t s[ACAB_Y][ACAB_X][3])
+void set_screen_rgb8(uint32_t hdr, uint8_t s[ACAB_Y][ACAB_X][3])
 {
 	int ix, iy;
 
@@ -166,6 +171,7 @@ void set_screen_rgb8(uint8_t s[ACAB_Y][ACAB_X][3])
 		{
 			/* LOG("%x %x %x, ", s[ix][iy][0], s[ix][iy][1], s[ix][iy][2]); */
 			set_pixel_xy_rgb8(
+			                hdr,
 			                s[iy][ix][0],
 			                s[iy][ix][1],
 			                s[iy][ix][2],
@@ -175,7 +181,7 @@ void set_screen_rgb8(uint8_t s[ACAB_Y][ACAB_X][3])
 	}
 }
 
-void set_screen_rgb16(uint16_t s[ACAB_Y][ACAB_X][3])
+void set_screen_rgb16(uint32_t hdr, uint16_t s[ACAB_Y][ACAB_X][3])
 {
 	int ix, iy;
 	for (iy=0; iy < ACAB_Y; iy++)
@@ -183,6 +189,7 @@ void set_screen_rgb16(uint16_t s[ACAB_Y][ACAB_X][3])
 		for (ix=0; ix < ACAB_X; ix++)
 		{
 			set_pixel_xy_rgb16(
+			                hdr,
 			                s[iy][ix][0],
 			                s[iy][ix][1],
 			                s[iy][ix][2],
@@ -211,7 +218,7 @@ void set_screen_rnd_bw(void)
 			}
 		}
 	}
-	set_screen_rgb8(tmp_screen8);
+	set_screen_rgb8(0, tmp_screen8); /* FIXME 0 */
 }
 
 void set_screen_rnd_col(void)
@@ -226,7 +233,7 @@ void set_screen_rnd_col(void)
 			tmp_screen8[iy][ix][2] = random();
 		}
 	}
-	set_screen_rgb8(tmp_screen8);
+	set_screen_rgb8(0, tmp_screen8); /* FIXME 0 */
 }
 
 void flip_double_buffer_on_bus(int b)
@@ -298,7 +305,7 @@ again:
 					LOG(" %d != %d\n", p->pkt_len, 8 + 2 * 3 * ACAB_X * ACAB_Y);
 					return;
 				}
-				set_screen_rgb16((uint16_t (*)[ACAB_X][3])p->data);
+				set_screen_rgb16(p->hdr, (uint16_t (*)[ACAB_X][3])p->data);
 			}
 			if (p->hdr & PKT_MASK_RGB8)
 			{
@@ -308,7 +315,7 @@ again:
 					LOG(" %d != %d\n", p->pkt_len, 8 + 3 * ACAB_X * ACAB_Y);
 					return;
 				}
-				set_screen_rgb8((uint8_t (*)[ACAB_X][3])p->data);
+				set_screen_rgb8(p->hdr, (uint8_t (*)[ACAB_X][3])p->data);
 			}
 
 			break;
