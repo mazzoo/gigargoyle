@@ -39,10 +39,6 @@
 #include "gigargoyle.h"
 #include "command_line_arguments.h"
 
-int web_l;  /* file handle for web clients listen()          */
-int web_state = WEB_NOT_CONNECTED;
-
-int daemon_pid;
 
 /* moodlamp control stuff */
 uint32_t frame_remaining;
@@ -65,7 +61,7 @@ void process_web_l_data(void)
 	struct sockaddr_in ca;
 	socklen_t salen = sizeof(struct sockaddr);
 
-	ret = accept(web_l, (struct sockaddr *)&ca, &salen);
+	ret = accept(ggg->web->listener, (struct sockaddr *)&ca, &salen);
 	if (ret < 0)
 	{
 		LOG("ERROR: accept() in  process_web_l_data(): %s\n",
@@ -74,9 +70,9 @@ void process_web_l_data(void)
 	}
 	int i;
 	for (i=0; i<MAX_WEB_CLIENTS; i++){
-		if (web[i] == -1)
+		if (ggg->web->sock[i] == -1)
 		{
-			web[i] = ret;
+			ggg->web->sock[i] = ret;
 			LOG("WEB: wizard%d materialized in front of gigargoyle from %d.%d.%d.%d:%d\n",
 					i,
 					(ca.sin_addr.s_addr & 0x000000ff) >>  0,
@@ -319,16 +315,16 @@ void daemonize(void)
 	close(1);
 	close(2);
 
-	daemon_pid = getpid();
+	ggg->daemon_pid = getpid();
 
-	LOG("MAIN: gigargoyle starting up as pid %d\n", daemon_pid);
+	LOG("MAIN: gigargoyle starting up as pid %d\n", ggg->daemon_pid);
 	int pidfile = open(arguments.pid_file, 
 	                   O_WRONLY | O_CREAT | O_TRUNC,
 	                   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (pidfile < 0)
 		exit(1);
 	char buf[BUF_SZ];
-	snprintf(buf, 6, "%d", daemon_pid);
+	snprintf(buf, 6, "%d", ggg->daemon_pid);
 	ret = write(pidfile, buf, strlen(buf));
 	if (ret != strlen(buf))
 	{
@@ -459,8 +455,15 @@ void init_web_l_socket(void)
 	int ret;
 	struct sockaddr_in sa;
 
-	web_l = socket (AF_INET, SOCK_STREAM, 0);
-	if (web_l < 0)
+	ggg->web = malloc(sizeof(*ggg->web));
+	if (!ggg->web)
+	{
+		LOG("ERROR: malloc() for web clients\n");
+		exit(1);
+	}
+
+	ggg->web->listener = socket (AF_INET, SOCK_STREAM, 0);
+	if (ggg->web->listener < 0)
 	{
 		LOG("ERROR: socket() for web clients: %s\n",
 		    strerror(errno));
@@ -472,7 +475,7 @@ void init_web_l_socket(void)
 	sa.sin_port        = htons(PORT_WEB);
 
 	ret = 1;
-	if(setsockopt(web_l, SOL_SOCKET, SO_REUSEADDR,
+	if(setsockopt(ggg->web->listener, SOL_SOCKET, SO_REUSEADDR,
 				(char *)&ret, sizeof(ret)) < 0)
 	{
 		LOG("ERROR: setsockopt() for web: %s\n",
@@ -483,7 +486,7 @@ void init_web_l_socket(void)
 	int bind_retries = 4;
 	while (bind_retries--)
 	{
-		ret = bind(web_l, (struct sockaddr *) &sa, sizeof(sa));
+		ret = bind(ggg->web->listener, (struct sockaddr *) &sa, sizeof(sa));
 		if (ret < 0)
 		{
 			LOG("MAIN: WARNING: bind() for web clients: %s... retrying %d\n",
@@ -495,11 +498,11 @@ void init_web_l_socket(void)
 	if (ret < 0)
 	{
 		LOG("MAIN: WARNING: bind() for web clients failed. running without. no live streaming possible\n");
-		web_state = WEB_ERROR;
+		ggg->web->state = WEB_ERROR;
 		return;
 	}
 
-	ret = listen(web_l, 8);
+	ret = listen(ggg->web->listener, 8);
 	if (ret < 0)
 	{
 		LOG("ERROR: listen() for web clients: %s\n",
@@ -516,14 +519,15 @@ void init_sockets(void)
 
 void init_web(void)
 {
-	web = malloc(MAX_WEB_CLIENTS * sizeof(*web));
-	if (!web)
+	ggg->web->sock = malloc(MAX_WEB_CLIENTS * sizeof(*ggg->web->sock));
+	if (!ggg->web->sock)
 	{
 		LOG("MAIN: out of memory =(\n");
 		exit(1);
 	}
-	memset(web, -1, MAX_WEB_CLIENTS * sizeof(*web));
+	memset(ggg->web->sock, -1, MAX_WEB_CLIENTS * sizeof(*ggg->web->sock));
 	memset(shadow_screen, 0, ACAB_X*ACAB_Y*3);
+	ggg->web->state = WEB_NOT_CONNECTED;
 }
 
 void init(void)
@@ -558,7 +562,27 @@ void init(void)
 		       strerror(errno));
 		exit(1);
 	}
+
 	ggg->qm->state = QM_NOT_CONNECTED;
+
+	/* instant streaming */
+	ggg->is = malloc(sizeof(*ggg->is));
+	if (!ggg->is)
+	{
+		printf("ERROR: couldn't alloc %d bytes: %s\n",
+		       sizeof(*ggg->is),
+		       strerror(errno));
+		exit(1);
+	}
+
+	ggg->is->buf = malloc(BUF_SZ);
+	if (!ggg->is->buf)
+	{
+		printf("ERROR: couldn't alloc %d buffer bytes: %s\n",
+		       BUF_SZ,
+		       strerror(errno));
+		exit(1);
+	}
 
 	ggg->is->state = IS_NOT_CONNECTED;
 
@@ -581,8 +605,8 @@ void init(void)
 		open_logfile();
 		daemonize();
 	}
-	pid_t daemon_pid = getpid();
-	LOG("gigargoyle starting up as pid %d\n", daemon_pid);
+	ggg->daemon_pid = getpid();
+	LOG("gigargoyle starting up as pid %d\n", ggg->daemon_pid);
 
 	atexit(cleanup);
 	signal(SIGTERM, sighandler);
@@ -670,19 +694,19 @@ void mainloop(void)
 #endif
 
 		/* web */
-		if (web_state != WEB_ERROR)
+		if (ggg->web->state != WEB_ERROR)
 		{
-			FD_SET(web_l, &rfd);
-			FD_SET(web_l, &efd);
-			nfds = max_int(nfds, web_l);
+			FD_SET(ggg->web->listener, &rfd);
+			FD_SET(ggg->web->listener, &efd);
+			nfds = max_int(nfds, ggg->web->listener);
 
 			for (i=0; i< MAX_WEB_CLIENTS; i++)
 			{
-				if (web[i]>=0)
+				if (ggg->web->sock[i]>=0)
 				{
-					FD_SET(web[i], &rfd);
-					FD_SET(web[i], &efd);
-					nfds = max_int(nfds, web[i]);
+					FD_SET(ggg->web->sock[i], &rfd);
+					FD_SET(ggg->web->sock[i], &efd);
+					nfds = max_int(nfds, ggg->web->sock[i]);
 				}
 			}
 		}
@@ -753,7 +777,7 @@ void mainloop(void)
 		}
 #endif
 
-		if (FD_ISSET(web_l, &efd))
+		if (FD_ISSET(ggg->web->listener, &efd))
 		{
 			LOG("ERROR: select() on web client: %s\n",
 					strerror(errno));
@@ -761,12 +785,12 @@ void mainloop(void)
 		}
 		for (i=0; i< MAX_WEB_CLIENTS; i++)
 		{
-			if (web[i]>=0)
+			if (ggg->web->sock[i]>=0)
 			{
-				if (FD_ISSET(web[i], &efd))
+				if (FD_ISSET(ggg->web->sock[i], &efd))
 				{
-					close(web[i]); /* disregarding errors */
-					web[i] = -1;
+					close(ggg->web->sock[i]); /* disregarding errors */
+					ggg->web->sock[i] = -1;
 					LOG("WEB: wizard%d stepped into his own trap and seeks for help elsewhere now. mana=852, health=100%%\n", i);
 				}
 			}
@@ -804,18 +828,18 @@ void mainloop(void)
 				process_is_data();
 		}
 #endif
-		if (FD_ISSET(web_l, &rfd))
+		if (FD_ISSET(ggg->web->listener, &rfd))
 			process_web_l_data();
 
 		for (i=0; i< MAX_WEB_CLIENTS; i++)
 		{
-			if (web[i]>=0)
+			if (ggg->web->sock[i]>=0)
 			{
-				if (FD_ISSET(web[i], &rfd))
+				if (FD_ISSET(ggg->web->sock[i], &rfd))
 				{
 					/* kill anyone who sends data, stfu   */
-					close(web[i]); /* disregarding errors */
-					web[i] = -1;
+					close(ggg->web->sock[i]); /* disregarding errors */
+					ggg->web->sock[i] = -1;
 
 					LOG("WEB: ordinary wizard%d tried to hit gigargoyle %ld times. gigargoyle stood still for %ld seconds and won the fight. mana=852, health=100%%\n",
 					   i,
