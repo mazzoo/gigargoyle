@@ -40,7 +40,7 @@
 
 #define PORT_QM  0xabac /* tcp port for the queing manager */
 #define PORT_IS  0xacab /* tcp port for instant streamers  */
-#define PORT_WEB     80 /* tcp port for live watchers      */
+#define PORT_WEB   8080 /* tcp port for live watchers      */
 
 #define MAX_WEB_CLIENTS 1024
 
