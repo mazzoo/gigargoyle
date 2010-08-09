@@ -60,7 +60,7 @@ pkt_t * rd_fifo(void)
 	if (fifo_state == FIFO_EMPTY)
 	{
 		//LOG("FIFO: WARNING: fifo empty, returning NULL\n");
-		if (source == SOURCE_LOCAL)
+		if (ggg->source == SOURCE_LOCAL)
 			fill_fifo_local();
 		else
 			running_empty_on_network++;

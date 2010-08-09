@@ -39,14 +39,6 @@
 #include "gigargoyle.h"
 #include "command_line_arguments.h"
 
-int qm_l;   /* file handle for the queing manager listen()   */
-int qm;     /* file handle for the queing manager accept()ed */
-int qm_state = QM_NOT_CONNECTED;
-
-int is_l;   /* file handle for instant streamer listen()    */
-int is;     /* file handle for instant streamer accept()ed  */
-int is_state = IS_NOT_CONNECTED;
-
 int web_l;  /* file handle for web clients listen()          */
 int web_state = WEB_NOT_CONNECTED;
 
@@ -56,7 +48,6 @@ int daemon_pid;
 uint32_t frame_remaining;
 uint64_t frame_last_time = 0;
 
-char * buf; /* general purpose buffer */
 #define BUF_SZ 4096
 
 /* prototypes we need */
@@ -136,38 +127,43 @@ struct argp argp = {options, parse_opt, args_doc, doc};
 void close_qm(void)
 {
 	int ret;
-	ret = close(qm);
+	ret = close(ggg->qm->sock);
 	if(ret)
 	{
 		LOG("ERROR: close(qm): %s\n",
 				strerror(errno));
 	}
 	init_qm_l_socket();
-	qm_state = QM_NOT_CONNECTED;
-	if (source == SOURCE_QM)
-		source = SOURCE_LOCAL;
+	ggg->qm->state = QM_NOT_CONNECTED;
+	if (ggg->source == SOURCE_QM)
+	{
+		ggg->source = SOURCE_LOCAL;
+		ggg->ss = NULL;
+	}
 	LOG("MAIN: listening for new QM connections\n");
-	qm_input_off = 0;
+	ggg->qm->input_offset = 0;
 }
 
-void process_qm_l_data(void)  {
+void process_qm_l_data(void)
+{
 
 	int ret;
 	struct sockaddr_in ca;
 	socklen_t salen = sizeof(struct sockaddr);
 
-	ret = accept(qm_l, (struct sockaddr *)&ca, &salen);
+	ret = accept(ggg->qm->listener, (struct sockaddr *)&ca, &salen);
 	if (ret < 0)
 	{
 		LOG("ERROR: accept() in  process_qm_l_data(): %s\n",
 				strerror(errno));
 		exit(1);
 	}
-	qm = ret;
-	qm_state = QM_CONNECTED;
-	if (source != SOURCE_IS)
+	ggg->qm->sock = ret;
+	ggg->qm->state = QM_CONNECTED;
+	if (ggg->source != SOURCE_IS)
 	{
-		source = SOURCE_QM;
+		ggg->source = SOURCE_QM;
+		ggg->ss = ggg->qm;
 		flush_fifo();
 	}
 	LOG("MAIN: queuing manager connected from %d.%d.%d.%d:%d\n",
@@ -177,19 +173,20 @@ void process_qm_l_data(void)  {
 			(ca.sin_addr.s_addr & 0xff000000) >> 24,
 			ntohs(ca.sin_port)
 	   );
-	ret = close(qm_l);
+	ret = close(ggg->qm->listener);
 	if (ret)
 	{
-		LOG("ERROR: close(qm_l): %s\n", strerror(errno));
+		LOG("ERROR: close(qm->listener): %s\n", strerror(errno));
 	}
 }
 
-void process_qm_data(void) {
+void process_qm_data(void)
+{
 	pkt_t p;
 	pkt_t *pt;
 	int ret;
 
-	ret = read(qm, buf+qm_input_off, BUF_SZ-qm_input_off);
+	ret = read(ggg->qm->sock, ggg->qm->buf + ggg->qm->input_offset, BUF_SZ - ggg->qm->input_offset);
 	if (ret == 0)
 	{
 		LOG("QM closed connection\n");
@@ -204,13 +201,13 @@ void process_qm_data(void) {
 		return;
 	}
 
-	pt = (pkt_t *) buf;
+	pt = (pkt_t *) ggg->qm->buf;
 
-	int plen = ret + qm_input_off;
+	int plen = ret + ggg->qm->input_offset;
 	if ((plen > BUF_SZ) || (plen <= 0))
 	{ /* reset input buffer */
 		LOG("QM: input reset %d\n", plen);
-		qm_input_off = 0;
+		ggg->qm->input_offset = 0;
 		return;
 	}
 	int ret_pkt;
@@ -228,7 +225,7 @@ void process_qm_data(void) {
 		ret_pkt = in_packet(&p, plen);
 
 		if(ret_pkt == -1) {
-			qm_input_off += plen;
+			ggg->qm->input_offset += plen;
 		} else {
 			if( ((int)p.pkt_len <= plen) &&
 			    ((int)p.pkt_len > 0)     &&
@@ -239,13 +236,13 @@ void process_qm_data(void) {
 				if ((plen > BUF_SZ) || (plen <= 0))
 				{ /* reset input buffer */
 					LOG("QM: input reset %d\n", plen);
-					qm_input_off = 0;
+					ggg->qm->input_offset = 0;
 					return;
 				}
 
-				memmove(buf, buf + p.pkt_len, plen);
+				memmove(ggg->qm->buf, ggg->qm->buf + p.pkt_len, plen);
 			}
-			qm_input_off = 0;
+			ggg->qm->input_offset = 0;
 		}
 	} while(ret_pkt == 0 && plen != 0);
 }
@@ -264,15 +261,15 @@ uint64_t gettimeofday64(void)
 
 void open_logfile(void)
 {
-	logfd = open(arguments.log_file,
-	             O_WRONLY | O_CREAT,
-	             S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	if (logfd < 0)
+	ggg->logfd = open(arguments.log_file,
+	                  O_WRONLY | O_CREAT,
+	                  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if (ggg->logfd < 0)
 	{
 		printf("ERROR: open(%s): %s\n", arguments.log_file, strerror(errno));
 		exit(1);
 	}
-	logfp = fdopen(logfd, "a");
+	logfp = fdopen(ggg->logfd, "a");
 	if (!logfp)
 	{
 		printf("ERROR: fdopen(%s): %s\n", arguments.log_file, strerror(errno));
@@ -330,6 +327,7 @@ void daemonize(void)
 	                   S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (pidfile < 0)
 		exit(1);
+	char buf[BUF_SZ];
 	snprintf(buf, 6, "%d", daemon_pid);
 	ret = write(pidfile, buf, strlen(buf));
 	if (ret != strlen(buf))
@@ -405,10 +403,10 @@ void init_qm_l_socket(void)
 	int ret;
 	struct sockaddr_in sa;
 
-	qm_input_off = 0;
+	ggg->qm->input_offset = 0;
 
-	qm_l = socket (AF_INET, SOCK_STREAM, 0);
-	if (qm_l < 0)
+	ggg->qm->listener = socket (AF_INET, SOCK_STREAM, 0);
+	if (ggg->qm->listener < 0)
 	{
 		LOG("ERROR: socket() for queuing manager: %s\n",
 		    strerror(errno));
@@ -420,7 +418,7 @@ void init_qm_l_socket(void)
 	sa.sin_port        = htons(arguments.port_qm);
 
 	ret = 1;
-	if(setsockopt(qm_l, SOL_SOCKET, SO_REUSEADDR,
+	if(setsockopt(ggg->qm->listener, SOL_SOCKET, SO_REUSEADDR,
 				(char *)&ret, sizeof(ret)) < 0)
 	{
 		LOG("ERROR: setsockopt() for queuing manager: %s\n",
@@ -431,7 +429,7 @@ void init_qm_l_socket(void)
 	int bind_retries = 4;
 	while (bind_retries--)
 	{
-		ret = bind(qm_l, (struct sockaddr *) &sa, sizeof(sa));
+		ret = bind(ggg->qm->listener, (struct sockaddr *) &sa, sizeof(sa));
 		if (ret < 0)
 		{
 			LOG("MAIN: WARNING: bind() for queuing manager: %s... retrying %d\n",
@@ -443,11 +441,11 @@ void init_qm_l_socket(void)
 	if (ret < 0)
 	{
 		LOG("MAIN: WARNING: bind() for queuing manager failed. running without. no movie playing possible\n");
-		qm_state = QM_ERROR;
+		ggg->qm->state = QM_ERROR;
 		return;
 	}
 
-	ret = listen(qm_l, 8);
+	ret = listen(ggg->qm->listener, 8);
 	if (ret < 0)
 	{
 		LOG("ERROR: listen() for queuing manager: %s\n",
@@ -530,14 +528,40 @@ void init_web(void)
 
 void init(void)
 {
-	buf = malloc(BUF_SZ);
-	if (!buf)
+	/* our global structure */
+	ggg = malloc(sizeof(*ggg));
+	if (!ggg)
+	{
+		printf("ERROR: couldn't alloc %d bytes: %s\n",
+		       sizeof(*ggg),
+		       strerror(errno));
+		exit(1);
+	}
+	memset(ggg, 0, sizeof(*ggg));
+
+
+	/* queuing manager */
+	ggg->qm = malloc(sizeof(*ggg->qm));
+	if (!ggg->qm)
+	{
+		printf("ERROR: couldn't alloc %d bytes: %s\n",
+		       sizeof(*ggg->qm),
+		       strerror(errno));
+		exit(1);
+	}
+
+	ggg->qm->buf = malloc(BUF_SZ);
+	if (!ggg->qm->buf)
 	{
 		printf("ERROR: couldn't alloc %d buffer bytes: %s\n",
 		       BUF_SZ,
 		       strerror(errno));
 		exit(1);
 	}
+	ggg->qm->state = QM_NOT_CONNECTED;
+
+	ggg->is->state = IS_NOT_CONNECTED;
+
 	pkt_t *p = malloc(sizeof(pkt_t));
 	if (!p)
 	{
@@ -549,7 +573,7 @@ void init(void)
 	
 	if (arguments.foreground)
 	{
-		logfd = 0;
+		ggg->logfd = 0;
 		logfp = stdout;
 	}
 	else
@@ -566,7 +590,8 @@ void init(void)
 	init_sockets();
 	init_fifo();
 
-	source = SOURCE_LOCAL;
+	ggg->source = SOURCE_LOCAL;
+	ggg->ss = NULL;
 	frame_duration = STARTUP_FRAME_DURATION;  /* us per frame */
 
 	init_web();
@@ -612,19 +637,19 @@ void mainloop(void)
 			nfds = max_int(nfds, row[i]);
 
 		/* qm queuing manager, max 1 */
-		if (qm_state != QM_ERROR)
+		if (ggg->qm->state != QM_ERROR)
 		{
-			if (qm_state == QM_NOT_CONNECTED)
+			if (ggg->qm->state == QM_NOT_CONNECTED)
 			{
-				FD_SET(qm_l, &rfd);
-				FD_SET(qm_l, &efd);
-				nfds = max_int(nfds, qm_l);
+				FD_SET(ggg->qm->listener, &rfd);
+				FD_SET(ggg->qm->listener, &efd);
+				nfds = max_int(nfds, ggg->qm->listener);
 			}
-			if (qm_state == QM_CONNECTED)
+			if (ggg->qm->state == QM_CONNECTED)
 			{
-				FD_SET(qm, &rfd);
-				FD_SET(qm, &efd);
-				nfds = max_int(nfds, qm);
+				FD_SET(ggg->qm->sock, &rfd);
+				FD_SET(ggg->qm->sock, &efd);
+				nfds = max_int(nfds, ggg->qm->sock);
 			}
 		}
 
@@ -632,15 +657,15 @@ void mainloop(void)
 		/* is instant streamer client, max 1 */
 		if (is_state == IS_NOT_CONNECTED)
 		{
-			FD_SET(is_l, &rfd);
-			FD_SET(is_l, &efd);
-			nfds = max_int(nfds, is_l);
+			FD_SET(ggg->is->listener, &rfd);
+			FD_SET(ggg->is->listener, &efd);
+			nfds = max_int(nfds, ggg->is->listener);
 		}
 		if (is_state == IS_CONNECTED)
 		{
-			FD_SET(is, &rfd);
-			FD_SET(is, &efd);
-			nfds = max_int(nfds, is);
+			FD_SET(ggg->is->sock, &rfd);
+			FD_SET(ggg->is->sock, &efd);
+			nfds = max_int(nfds, ggg->is->sock);
 		}
 #endif
 
@@ -687,18 +712,18 @@ void mainloop(void)
 			}
 
 		/* qm queuing manager, max 1 */
-		if (qm_state == QM_NOT_CONNECTED)
+		if (ggg->qm->state == QM_NOT_CONNECTED)
 		{
-			if (FD_ISSET(qm_l, &efd))
+			if (FD_ISSET(ggg->qm->listener, &efd))
 			{
 				LOG("ERROR: select() on queuing manager listener: %s\n",
 						strerror(errno));
 				exit(1);
 			}
 		}
-		if (qm_state == QM_CONNECTED)
+		if (ggg->qm->state == QM_CONNECTED)
 		{
-			if (FD_ISSET(qm, &efd))
+			if (FD_ISSET(ggg->qm->sock, &efd))
 			{
 				LOG("MAIN: WARNING: select() on queuing manager connection: %s\n",
 						strerror(errno));
@@ -710,7 +735,7 @@ void mainloop(void)
 		/* is instant streamer client, max 1 */
 		if (is_state == IS_NOT_CONNECTED)
 		{
-			if (FD_ISSET(is_l, &efd))
+			if (FD_ISSET(ggg->is->listener, &efd))
 			{
 				LOG("ERROR: select() on instant streamer listener: %s\n",
 						strerror(errno));
@@ -719,7 +744,7 @@ void mainloop(void)
 		}
 		if (is_state == IS_CONNECTED)
 		{
-			if (FD_ISSET(is, &efd))
+			if (FD_ISSET(ggg->is->sock, &efd))
 			{
 				LOG("ERROR: select() on instant streamer connection: %s\n",
 						strerror(errno));
@@ -756,26 +781,26 @@ void mainloop(void)
 			if (FD_ISSET(row[i], &rfd))
 				process_row_data(i);
 
-		if (qm_state == QM_NOT_CONNECTED)
+		if (ggg->qm->state == QM_NOT_CONNECTED)
 		{
-			if (FD_ISSET(qm_l, &rfd))
+			if (FD_ISSET(ggg->qm->listener, &rfd))
 				process_qm_l_data();
 		}
-		if (qm_state == QM_CONNECTED)
+		if (ggg->qm->state == QM_CONNECTED)
 		{
-			if (FD_ISSET(qm, &rfd))
+			if (FD_ISSET(ggg->qm->sock, &rfd))
 				process_qm_data();
 		}
 
 #if 0 /* FIXME: IS */
 		if (is_state == IS_NOT_CONNECTED)
 		{
-			if (FD_ISSET(is_l, &rfd))
+			if (FD_ISSET(ggg->is->listener, &rfd))
 				process_is_l_data();
 		}
 		if (is_state == IS_CONNECTED)
 		{
-			if (FD_ISSET(is, &rfd))
+			if (FD_ISSET(ggg->is->sock, &rfd))
 				process_is_data();
 		}
 #endif
