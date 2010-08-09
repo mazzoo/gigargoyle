@@ -23,10 +23,10 @@
 #define CONFIG_H
 
 /* row 0 is the top row */
-#define ROW_0_UART "/dev/ttyS4"
-#define ROW_1_UART "/dev/ttyS5"
-#define ROW_2_UART "/dev/ttyS6"
-#define ROW_3_UART "/dev/ttyS7"
+#define ROW_0_UART "/dev/acabA"
+#define ROW_1_UART "/dev/acabB"
+#define ROW_2_UART "/dev/acabC"
+#define ROW_3_UART "/dev/acabD"
 /* row 3 is the bottom row */
 
 #define PID_FILE "/var/run/gigargoyle.pid"
@@ -35,8 +35,8 @@
 #define ACAB_X 24
 #define ACAB_Y  4 /*sigh*/
 
-#define FIFO_DEPTH 1024 /* number of messages to be q'd    */
-#define FIFO_WIDTH 2048 /* more than a MTU should be sane  */
+#define FIFO_DEPTH 20*1024 /* number of messages to be q'd    */
+#define FIFO_WIDTH  2*1024 /* more than a MTU should be sane  */
 
 #define PORT_QM  0xabac /* tcp port for the queing manager */
 #define PORT_IS  0xacab /* tcp port for instant streamers  */
