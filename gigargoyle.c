@@ -147,6 +147,7 @@ void close_qm(void)
 	if (source == SOURCE_QM)
 		source = SOURCE_LOCAL;
 	LOG("MAIN: listening for new QM connections\n");
+	qm_input_off = 0;
 }
 
 void process_qm_l_data(void)  {
@@ -186,10 +187,9 @@ void process_qm_l_data(void)  {
 void process_qm_data(void) {
 	pkt_t p;
 	pkt_t *pt;
-	static int off = 0;
 	int ret;
 
-	ret = read(qm, buf+off, BUF_SZ-off);
+	ret = read(qm, buf+qm_input_off, BUF_SZ-qm_input_off);
 	if (ret == 0)
 	{
 		LOG("QM closed connection\n");
@@ -198,30 +198,54 @@ void process_qm_data(void) {
 	}
 	if (ret < 0)
 	{
-		LOG("ERROR: read() from queing manager: %s\n",
+		LOG("WARNING: read() from queing manager: %s\n",
 		    strerror(errno));
-		exit(1);
+		close_qm();
+		return;
 	}
 
 	pt = (pkt_t *) buf;
 
-	int plen = ret+off;
+	int plen = ret + qm_input_off;
+	if ((plen > BUF_SZ) || (plen <= 0))
+	{ /* reset input buffer */
+		LOG("QM: input reset %d\n", plen);
+		qm_input_off = 0;
+		return;
+	}
 	int ret_pkt;
         do {
 		p.hdr = ntohl(pt->hdr);
 		p.pkt_len = ntohl(pt->pkt_len);
 		p.data = (uint8_t *) &(pt->data);
 
+		if (p.pkt_len < 8)
+		{
+			LOG("QM: short packet tells me its %d bytes long\n", p.pkt_len);
+			return;
+		}
+
 		ret_pkt = in_packet(&p, plen);
 
 		if(ret_pkt == -1) {
-			off += plen;
+			qm_input_off += plen;
 		} else {
-			if((int)p.pkt_len <= plen) {
+			if( ((int)p.pkt_len <= plen) &&
+			    ((int)p.pkt_len > 0)     &&
+			    ((int)p.pkt_len < FIFO_WIDTH)) {
+
 				plen -= (int)p.pkt_len;
+
+				if ((plen > BUF_SZ) || (plen <= 0))
+				{ /* reset input buffer */
+					LOG("QM: input reset %d\n", plen);
+					qm_input_off = 0;
+					return;
+				}
+
 				memmove(buf, buf + p.pkt_len, plen);
 			}
-			off = 0;
+			qm_input_off = 0;
 		}
 	} while(ret_pkt == 0 && plen != 0);
 }
@@ -380,6 +404,8 @@ void init_qm_l_socket(void)
 {
 	int ret;
 	struct sockaddr_in sa;
+
+	qm_input_off = 0;
 
 	qm_l = socket (AF_INET, SOCK_STREAM, 0);
 	if (qm_l < 0)

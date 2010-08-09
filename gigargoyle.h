@@ -31,6 +31,7 @@ FILE * logfp;
 
 uint8_t source;           /* changed when QM or IS data come in
                            * or fifo runs empty */
+int qm_input_off;
 
 uint32_t frame_duration;  /* us per frame, modified by
                            * PKT_TYPE_SET_FRAME_RATE or

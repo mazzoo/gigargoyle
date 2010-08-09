@@ -56,6 +56,12 @@ int in_packet(pkt_t * p, uint32_t plen)
 		return -1;
 	}
 
+	if (p->pkt_len > FIFO_WIDTH)
+	{
+		LOG("PKTS: WARNING: got long packet (len %d)\n", plen);
+		return -1;
+	}
+
 	switch(p->hdr & PKT_MASK_TYPE)
 	{
 		case PKT_TYPE_SET_SCREEN_BLK:
