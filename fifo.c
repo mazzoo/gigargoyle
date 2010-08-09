@@ -27,13 +27,13 @@
 
 void wr_fifo(pkt_t * pkt)
 {
-	if (fifo_state == FIFO_FULL)
+	if (ggg->fifo->state == FIFO_FULL)
 	{
 		LOG("FIFO: WARNING: fifo full, dropping packet, hdr %x\n", pkt->hdr);
 		return;
 	}
-	if (fifo_state == FIFO_EMPTY)
-		fifo_state = FIFO_HALF;
+	if (ggg->fifo->state == FIFO_EMPTY)
+		ggg->fifo->state = FIFO_HALF;
 
 	if (pkt->pkt_len > FIFO_WIDTH)
 	{
@@ -41,23 +41,23 @@ void wr_fifo(pkt_t * pkt)
 		return;
 	}
 
-	pkt_t *p = (pkt_t *)fifo[fifo_wr];
+	pkt_t *p = (pkt_t *)ggg->fifo->fifo[ggg->fifo->wr];
 
 	memcpy(p, pkt, sizeof(pkt_t));
 	p->data = (uint8_t *)(p + 1);
 	memcpy(p + 1, pkt->data, pkt->pkt_len - 8);
 
-	fifo_wr++;
-	fifo_wr %= FIFO_DEPTH;
-	if (fifo_wr == fifo_rd)
-		fifo_state = FIFO_FULL;
-	//LOG("FIFO[%4.4d:%4.4d]: stored pkt type %8.8x\n", fifo_rd, fifo_wr, pkt->hdr);
+	ggg->fifo->wr++;
+	ggg->fifo->wr %= FIFO_DEPTH;
+	if (ggg->fifo->wr == ggg->fifo->rd)
+		ggg->fifo->state = FIFO_FULL;
+	//LOG("FIFO[%4.4d:%4.4d]: stored pkt type %8.8x\n", ggg->fifo->rd, ggg->fifo->wr, pkt->hdr);
 }
 
 pkt_t * rd_fifo(void)
 {
 	static int running_empty_on_network = 0;
-	if (fifo_state == FIFO_EMPTY)
+	if (ggg->fifo->state == FIFO_EMPTY)
 	{
 		//LOG("FIFO: WARNING: fifo empty, returning NULL\n");
 		if (ggg->source == SOURCE_LOCAL)
@@ -76,29 +76,36 @@ pkt_t * rd_fifo(void)
 		return NULL;
 	}
 
-	pkt_t * p = (pkt_t *) fifo[fifo_rd];
-	memcpy(fp, fifo[fifo_rd], sizeof(pkt_t) + p->pkt_len - 8);
+	pkt_t * p = (pkt_t *) ggg->fifo->fifo[ggg->fifo->rd];
+	memcpy(fp, ggg->fifo->fifo[ggg->fifo->rd], sizeof(pkt_t) + p->pkt_len - 8);
 
-	fifo_rd++;
-	fifo_rd %= FIFO_DEPTH;
-	if (fifo_wr == fifo_rd)
-		fifo_state = FIFO_EMPTY;
+	ggg->fifo->rd++;
+	ggg->fifo->rd %= FIFO_DEPTH;
+	if (ggg->fifo->wr == ggg->fifo->rd)
+		ggg->fifo->state = FIFO_EMPTY;
 
 	return fp;
 }
 
 void flush_fifo(void)
 {
-	fifo_rd = 0;
-	fifo_wr = 0;
-	fifo_state = FIFO_EMPTY;
+	ggg->fifo->rd = 0;
+	ggg->fifo->wr = 0;
+	ggg->fifo->state = FIFO_EMPTY;
 	LOG("FIFO: flushing\n");
 }
 
 void init_fifo(void)
 {
-	fifo = malloc(FIFO_DEPTH * (sizeof(fifo)));
-	if (!fifo)
+	ggg->fifo = malloc(sizeof(ggg->fifo));
+	if (!ggg->fifo)
+	{
+		LOG("ERROR: out of memory (fifo)\n");
+		exit(1);
+	}
+
+	ggg->fifo->fifo = malloc(FIFO_DEPTH * (sizeof(ggg->fifo->fifo)));
+	if (!ggg->fifo->fifo)
 	{
 		LOG("ERROR: out of memory (fifo)\n");
 		exit(1);
@@ -107,16 +114,16 @@ void init_fifo(void)
 	int i;
 	for (i=0; i<FIFO_DEPTH; i++)
 	{
-		fifo[i] = malloc(FIFO_WIDTH);
-		if (!fifo[i])
+		ggg->fifo->fifo[i] = malloc(FIFO_WIDTH);
+		if (!ggg->fifo->fifo[i])
 		{
 			LOG("ERROR: out of memory (fifo %d)\n", i);
 			exit(1);
 		}
 	}
-	fifo_rd    = 0;
-	fifo_wr    = 0;
-	fifo_state = FIFO_EMPTY;
+	ggg->fifo->rd    = 0;
+	ggg->fifo->wr    = 0;
+	ggg->fifo->state = FIFO_EMPTY;
 
 	fp = malloc(sizeof(pkt_t) + FIFO_WIDTH);
 	if (!fp)

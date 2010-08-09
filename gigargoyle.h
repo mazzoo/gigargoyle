@@ -39,11 +39,19 @@ typedef struct streamingsource_s
 
 typedef struct web_s
 {
-	int listener;                /* file handle for web clients listen()   */
+	int listener;              /* file handle for web clients listen()   */
 	int * sock;                /* file handle for web clients accept()ed */
 	int state;
-
 } web_t;
+
+typedef struct fifo_s
+{
+	uint8_t ** fifo;
+	uint32_t   rd;
+	uint32_t   wr;
+	int        state;
+
+} fifo_t;
 
 typedef struct gigargoyle_s
 {
@@ -59,6 +67,8 @@ typedef struct gigargoyle_s
 	streamingsource_t * is;   /* instant streaming */
 	streamingsource_t * ss;   /* actual streaming source. either is NULL,
 	                             or points to qm or is */
+
+	fifo_t            * fifo;
 
 	web_t             * web;  /* WEB clients structure */
 } gigargoyle_t;

@@ -30,11 +30,6 @@
 #define FIFO_EMPTY 0x1
 #define FIFO_HALF  0x2
 #define FIFO_FULL  0x3
-                      
-uint8_t ** fifo;
-uint32_t   fifo_rd;
-uint32_t   fifo_wr;
-int        fifo_state;
 
 /* local buffer for a single fifo pkt */
 pkt_t * fp;
