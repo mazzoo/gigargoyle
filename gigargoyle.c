@@ -337,20 +337,20 @@ void daemonize(void)
 void init_uarts(void)
 {
 	int uerr[4];
-	row[0] = open(arguments.row_0_uart, O_RDWR | O_EXCL);
+	ggg->uart[0] = open(arguments.row_0_uart, O_RDWR | O_EXCL);
 	uerr[0] = errno;
-	row[1] = open(arguments.row_1_uart, O_RDWR | O_EXCL);
+	ggg->uart[1] = open(arguments.row_1_uart, O_RDWR | O_EXCL);
 	uerr[1] = errno;
-	row[2] = open(arguments.row_2_uart, O_RDWR | O_EXCL);
+	ggg->uart[2] = open(arguments.row_2_uart, O_RDWR | O_EXCL);
 	uerr[2] = errno;
-	row[3] = open(arguments.row_3_uart, O_RDWR | O_EXCL);
+	ggg->uart[3] = open(arguments.row_3_uart, O_RDWR | O_EXCL);
 	uerr[3] = errno;
 
 	int do_exit = 0;
 	int i;
 	for (i=0; i<4; i++)
 	{
-		if (row[i] < 0)
+		if (ggg->uart[i] < 0)
 		{
 			LOG("ERROR: open(device %d): %s\n",
 			    i,
@@ -655,10 +655,10 @@ void mainloop(void)
 
 		/* row */
 		for (i=0; i<4; i++)
-			FD_SET(row[i], &efd);
+			FD_SET(ggg->uart[i], &efd);
 		nfds = -1;
 		for (i=0; i<4; i++)
-			nfds = max_int(nfds, row[i]);
+			nfds = max_int(nfds, ggg->uart[i]);
 
 		/* qm queuing manager, max 1 */
 		if (ggg->qm->state != QM_ERROR)
@@ -727,7 +727,7 @@ void mainloop(void)
 		}
 
 		for (i=0; i<4; i++)
-			if (FD_ISSET(row[i], &efd))
+			if (FD_ISSET(ggg->uart[i], &efd))
 			{
 				LOG("ERROR: select() error on tty %d: %s\n",
 					i,
@@ -802,7 +802,7 @@ void mainloop(void)
 		 * (only used in bootstrapping, not our business)
 		 * but at least we log it */
 		for (i=0; i<4; i++)
-			if (FD_ISSET(row[i], &rfd))
+			if (FD_ISSET(ggg->uart[i], &rfd))
 				process_row_data(i);
 
 		if (ggg->qm->state == QM_NOT_CONNECTED)

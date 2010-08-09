@@ -24,6 +24,7 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "config.h"
 #include "packets.h"
@@ -138,7 +139,7 @@ void set_pixel_xy_rgb8(
 		timestamp = gettimeofday64();
 	}
 
-	ret = write(row[y], bus_buf, 9);
+	ret = write(ggg->uart[y], bus_buf, 9);
 
 	if (ret != 9)
 		LOG("PKTS: WARNING: write(bus %d) = %d != 9\n", y, ret);
@@ -187,6 +188,10 @@ void set_screen_rgb8(uint32_t hdr, uint8_t s[ACAB_Y][ACAB_X][3])
 				    );
 		}
 	}
+	if (hdr & PKT_MASK_REQ_ACK)
+		if (ggg->source == SOURCE_QM)
+			if (ggg->qm->state == QM_CONNECTED)
+				write(ggg->qm->sock, ACK_AB_KLINGON, strlen(ACK_AB_KLINGON));
 }
 
 void set_screen_rgb16(uint32_t hdr, uint16_t s[ACAB_Y][ACAB_X][3])
@@ -205,6 +210,9 @@ void set_screen_rgb16(uint32_t hdr, uint16_t s[ACAB_Y][ACAB_X][3])
 				    );
 		}
 	}
+	if (hdr & PKT_MASK_REQ_ACK)
+		if (ggg->qm->state == QM_CONNECTED)
+			write(ggg->qm->sock, ACK_AB_KLINGON, strlen(ACK_AB_KLINGON));
 }
 
 void set_screen_rnd_bw(void)
@@ -256,7 +264,7 @@ void flip_double_buffer_on_bus(int b)
 	bus_buf[8] = 0x31;
 	int ret;
 
-	ret = write(row[b], bus_buf, 9);
+	ret = write(ggg->uart[b], bus_buf, 9);
 	if (ret != 9)
 		LOG("PKTS: WARNING: flip_double_buffer_on_bus() write(bus %d) = %d != 9\n", b, ret);
 }

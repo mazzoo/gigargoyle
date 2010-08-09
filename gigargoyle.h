@@ -73,16 +73,16 @@ typedef struct gigargoyle_s
 	fifo_t            * fifo;
 
 	web_t             * web;  /* WEB clients structure */
+
+	int uart[4];               /* file handles for the uarts */
 } gigargoyle_t;
 
 gigargoyle_t * ggg;
-
 
 uint32_t frame_duration;  /* us per frame, modified by
                            * PKT_TYPE_SET_FRAME_RATE or
                            * PKT_TYPE_SET_DURATION */
 
-int row[4];               /* file handles for the uarts */
 
 uint8_t tmp_screen8 [ACAB_Y][ACAB_X][3];
 uint8_t tmp_screen16[ACAB_X][ACAB_Y][6];
