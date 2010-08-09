@@ -50,16 +50,18 @@ int in_packet(pkt_t * p, uint32_t plen)
 
 	if (plen < p->pkt_len )
 	{
+#if 0 /* this is fine -1 is the marker for incomplete packets */
 		LOG("PKTS: WARNING: got short packet (%d < %d)\n",
 		    plen, p->pkt_len
 		   );
+#endif
 		return -1;
 	}
 
 	if (p->pkt_len > FIFO_WIDTH)
 	{
 		LOG("PKTS: WARNING: got long packet (len %d)\n", plen);
-		return -1;
+		return -3;
 	}
 
 	switch(p->hdr & PKT_MASK_TYPE)
