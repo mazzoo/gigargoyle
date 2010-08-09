@@ -31,9 +31,6 @@
 #define FIFO_HALF  0x2
 #define FIFO_FULL  0x3
 
-/* local buffer for a single fifo pkt */
-pkt_t * fp;
-
 pkt_t * rd_fifo(void);
 void wr_fifo(pkt_t * p);
 void flush_fifo(void);

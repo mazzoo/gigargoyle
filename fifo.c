@@ -77,14 +77,14 @@ pkt_t * rd_fifo(void)
 	}
 
 	pkt_t * p = (pkt_t *) ggg->fifo->fifo[ggg->fifo->rd];
-	memcpy(fp, ggg->fifo->fifo[ggg->fifo->rd], sizeof(pkt_t) + p->pkt_len - 8);
+	memcpy(ggg->fifo->packet, ggg->fifo->fifo[ggg->fifo->rd], sizeof(pkt_t) + p->pkt_len - 8);
 
 	ggg->fifo->rd++;
 	ggg->fifo->rd %= FIFO_DEPTH;
 	if (ggg->fifo->wr == ggg->fifo->rd)
 		ggg->fifo->state = FIFO_EMPTY;
 
-	return fp;
+	return ggg->fifo->packet;
 }
 
 void flush_fifo(void)
@@ -125,10 +125,10 @@ void init_fifo(void)
 	ggg->fifo->wr    = 0;
 	ggg->fifo->state = FIFO_EMPTY;
 
-	fp = malloc(sizeof(pkt_t) + FIFO_WIDTH);
-	if (!fp)
+	ggg->fifo->packet = malloc(sizeof(pkt_t) + FIFO_WIDTH);
+	if (!ggg->fifo->packet)
 	{
-		LOG("ERROR: out of memory (fp)\n");
+		LOG("ERROR: out of memory (packet)\n");
 		exit(1);
 	}
 	fill_fifo_local();
@@ -140,10 +140,10 @@ void fill_fifo_local(void)
 	int i;
 	for (i=0; i<IDLE_FRAMES; i++)
 	{
-		fp->hdr     = ii[i].ph;
-		fp->pkt_len = ii[i].pl;
-		fp->data    = (uint8_t *)(fp + 1);
-		memcpy(fp->data, ii[i].p, ii[i].pl-8);
-		wr_fifo(fp);
+		ggg->fifo->packet->hdr     = ii[i].ph;
+		ggg->fifo->packet->pkt_len = ii[i].pl;
+		ggg->fifo->packet->data    = (uint8_t *)(ggg->fifo->packet + 1);
+		memcpy(ggg->fifo->packet->data, ii[i].p, ii[i].pl-8);
+		wr_fifo(ggg->fifo->packet);
 	}
 }

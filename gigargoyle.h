@@ -51,6 +51,8 @@ typedef struct fifo_s
 	uint32_t   wr;
 	int        state;
 
+	pkt_t    * packet; /* local buffer for a single fifo pkt */
+
 } fifo_t;
 
 typedef struct gigargoyle_s
