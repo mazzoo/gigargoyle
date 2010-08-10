@@ -211,8 +211,9 @@ void set_screen_rgb16(uint32_t hdr, uint16_t s[ACAB_Y][ACAB_X][3])
 		}
 	}
 	if (hdr & PKT_MASK_REQ_ACK)
-		if (ggg->qm->state == QM_CONNECTED)
-			write(ggg->qm->sock, ACK_AB_KLINGON, strlen(ACK_AB_KLINGON));
+		if (ggg->source == SOURCE_QM)
+			if (ggg->qm->state == QM_CONNECTED)
+				write(ggg->qm->sock, ACK_AB_KLINGON, strlen(ACK_AB_KLINGON));
 }
 
 void set_screen_rnd_bw(void)
@@ -258,8 +259,8 @@ void flip_double_buffer_on_bus(int b)
 	uint8_t bus_buf[9]; //FIXME
 	bus_buf[0] = 0x5c;
 	bus_buf[1] = 0x30;
-	bus_buf[2] = 0x10;
-	bus_buf[3] = 'C';
+	bus_buf[2] = 0x00;
+	bus_buf[3] = 'U';
 	bus_buf[7] = 0x5c;
 	bus_buf[8] = 0x31;
 	int ret;
