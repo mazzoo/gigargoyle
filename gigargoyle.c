@@ -130,7 +130,7 @@ void close_qm(void)
 				strerror(errno));
 	}
 	init_qm_l_socket();
-	ggg->qm->state = QM_NOT_CONNECTED;
+	ggg->qm->state = NET_NOT_CONNECTED;
 	if (ggg->source == SOURCE_QM)
 	{
 		ggg->source = SOURCE_LOCAL;
@@ -155,7 +155,7 @@ void process_qm_l_data(void)
 		exit(1);
 	}
 	ggg->qm->sock = ret;
-	ggg->qm->state = QM_CONNECTED;
+	ggg->qm->state = NET_CONNECTED;
 	if (ggg->source != SOURCE_IS)
 	{
 		ggg->source = SOURCE_QM;
@@ -437,7 +437,7 @@ void init_qm_l_socket(void)
 	if (ret < 0)
 	{
 		LOG("MAIN: WARNING: bind() for queuing manager failed. running without. no movie playing possible\n");
-		ggg->qm->state = QM_ERROR;
+		ggg->qm->state = NET_ERROR;
 		return;
 	}
 
@@ -498,7 +498,7 @@ void init_web_l_socket(void)
 	if (ret < 0)
 	{
 		LOG("MAIN: WARNING: bind() for web clients failed. running without. no live streaming possible\n");
-		ggg->web->state = WEB_ERROR;
+		ggg->web->state = NET_ERROR;
 		return;
 	}
 
@@ -527,7 +527,21 @@ void init_web(void)
 	}
 	memset(ggg->web->sock, -1, MAX_WEB_CLIENTS * sizeof(*ggg->web->sock));
 	memset(shadow_screen, 0, ACAB_X*ACAB_Y*3);
-	ggg->web->state = WEB_NOT_CONNECTED;
+	ggg->web->state = NET_NOT_CONNECTED;
+}
+
+void init_streamingsource(streamingsource_t * ss)
+{
+	ss->buf = malloc(BUF_SZ);
+	if (!ss->buf)
+	{
+		printf("ERROR: couldn't alloc %d buffer bytes: %s\n",
+		       BUF_SZ,
+		       strerror(errno));
+		exit(1);
+	}
+
+	ss->state = NET_NOT_CONNECTED;
 }
 
 void init(void)
@@ -554,16 +568,7 @@ void init(void)
 		exit(1);
 	}
 
-	ggg->qm->buf = malloc(BUF_SZ);
-	if (!ggg->qm->buf)
-	{
-		printf("ERROR: couldn't alloc %d buffer bytes: %s\n",
-		       BUF_SZ,
-		       strerror(errno));
-		exit(1);
-	}
-
-	ggg->qm->state = QM_NOT_CONNECTED;
+	init_streamingsource(ggg->qm);
 
 	/* instant streaming */
 	ggg->is = malloc(sizeof(*ggg->is));
@@ -575,17 +580,9 @@ void init(void)
 		exit(1);
 	}
 
-	ggg->is->buf = malloc(BUF_SZ);
-	if (!ggg->is->buf)
-	{
-		printf("ERROR: couldn't alloc %d buffer bytes: %s\n",
-		       BUF_SZ,
-		       strerror(errno));
-		exit(1);
-	}
+	init_streamingsource(ggg->is);
 
-	ggg->is->state = IS_NOT_CONNECTED;
-
+#if 0
 	pkt_t *p = malloc(sizeof(pkt_t));
 	if (!p)
 	{
@@ -594,7 +591,8 @@ void init(void)
 		       strerror(errno));
 		exit(1);
 	}
-	
+#endif
+
 	if (arguments.foreground)
 	{
 		ggg->logfd = 0;
@@ -605,12 +603,14 @@ void init(void)
 		open_logfile();
 		daemonize();
 	}
+
 	ggg->daemon_pid = getpid();
 	LOG("gigargoyle starting up as pid %d\n", ggg->daemon_pid);
 
 	atexit(cleanup);
 	signal(SIGTERM, sighandler);
-        init_uarts();
+
+	init_uarts();
 	init_sockets();
 	init_fifo();
 
@@ -661,15 +661,15 @@ void mainloop(void)
 			nfds = max_int(nfds, ggg->uart[i]);
 
 		/* qm queuing manager, max 1 */
-		if (ggg->qm->state != QM_ERROR)
+		if (ggg->qm->state != NET_ERROR)
 		{
-			if (ggg->qm->state == QM_NOT_CONNECTED)
+			if (ggg->qm->state == NET_NOT_CONNECTED)
 			{
 				FD_SET(ggg->qm->listener, &rfd);
 				FD_SET(ggg->qm->listener, &efd);
 				nfds = max_int(nfds, ggg->qm->listener);
 			}
-			if (ggg->qm->state == QM_CONNECTED)
+			if (ggg->qm->state == NET_CONNECTED)
 			{
 				FD_SET(ggg->qm->sock, &rfd);
 				FD_SET(ggg->qm->sock, &efd);
@@ -679,13 +679,13 @@ void mainloop(void)
 
 #if 0 /* FIXME: IS */
 		/* is instant streamer client, max 1 */
-		if (is_state == IS_NOT_CONNECTED)
+		if (is_state == NET_NOT_CONNECTED)
 		{
 			FD_SET(ggg->is->listener, &rfd);
 			FD_SET(ggg->is->listener, &efd);
 			nfds = max_int(nfds, ggg->is->listener);
 		}
-		if (is_state == IS_CONNECTED)
+		if (is_state == NET_CONNECTED)
 		{
 			FD_SET(ggg->is->sock, &rfd);
 			FD_SET(ggg->is->sock, &efd);
@@ -694,7 +694,7 @@ void mainloop(void)
 #endif
 
 		/* web */
-		if (ggg->web->state != WEB_ERROR)
+		if (ggg->web->state != NET_ERROR)
 		{
 			FD_SET(ggg->web->listener, &rfd);
 			FD_SET(ggg->web->listener, &efd);
@@ -736,7 +736,7 @@ void mainloop(void)
 			}
 
 		/* qm queuing manager, max 1 */
-		if (ggg->qm->state == QM_NOT_CONNECTED)
+		if (ggg->qm->state == NET_NOT_CONNECTED)
 		{
 			if (FD_ISSET(ggg->qm->listener, &efd))
 			{
@@ -745,7 +745,7 @@ void mainloop(void)
 				exit(1);
 			}
 		}
-		if (ggg->qm->state == QM_CONNECTED)
+		if (ggg->qm->state == NET_CONNECTED)
 		{
 			if (FD_ISSET(ggg->qm->sock, &efd))
 			{
@@ -757,7 +757,7 @@ void mainloop(void)
 
 #if 0 /* FIXME: IS */
 		/* is instant streamer client, max 1 */
-		if (is_state == IS_NOT_CONNECTED)
+		if (is_state == NET_NOT_CONNECTED)
 		{
 			if (FD_ISSET(ggg->is->listener, &efd))
 			{
@@ -766,7 +766,7 @@ void mainloop(void)
 				exit(1);
 			}
 		}
-		if (is_state == IS_CONNECTED)
+		if (is_state == NET_CONNECTED)
 		{
 			if (FD_ISSET(ggg->is->sock, &efd))
 			{
@@ -805,24 +805,24 @@ void mainloop(void)
 			if (FD_ISSET(ggg->uart[i], &rfd))
 				process_row_data(i);
 
-		if (ggg->qm->state == QM_NOT_CONNECTED)
+		if (ggg->qm->state == NET_NOT_CONNECTED)
 		{
 			if (FD_ISSET(ggg->qm->listener, &rfd))
 				process_qm_l_data();
 		}
-		if (ggg->qm->state == QM_CONNECTED)
+		if (ggg->qm->state == NET_CONNECTED)
 		{
 			if (FD_ISSET(ggg->qm->sock, &rfd))
 				process_qm_data();
 		}
 
 #if 0 /* FIXME: IS */
-		if (is_state == IS_NOT_CONNECTED)
+		if (is_state == NET_NOT_CONNECTED)
 		{
 			if (FD_ISSET(ggg->is->listener, &rfd))
 				process_is_l_data();
 		}
-		if (is_state == IS_CONNECTED)
+		if (is_state == NET_CONNECTED)
 		{
 			if (FD_ISSET(ggg->is->sock, &rfd))
 				process_is_data();
