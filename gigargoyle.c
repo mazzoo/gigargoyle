@@ -191,8 +191,9 @@ void process_qm_data(void)
 	}
 	if (ret < 0)
 	{
-		LOG("WARNING: read() from queing manager: %s\n",
+		LOG("QM: WARNING: read() from queing manager: %s\n",
 		    strerror(errno));
+		LOG("QM:          closing QM connection\n");
 		close_qm();
 		return;
 	}
@@ -389,6 +390,8 @@ void cleanup(void)
 
 void sighandler(int s)
 {
+	if (s == SIGPIPE)
+		return;
 	LOG("sunrise is near, I am dying on a signal %d\n", s);
 	cleanup();
 	exit(0);
@@ -609,6 +612,7 @@ void init(void)
 
 	atexit(cleanup);
 	signal(SIGTERM, sighandler);
+	signal(SIGPIPE, sighandler); /* when cleints (players) disconnect between select() and write() */
 
 	init_uarts();
 	init_sockets();

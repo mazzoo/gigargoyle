@@ -42,7 +42,7 @@
 #define PORT_IS  0xacab /* tcp port for instant streamers  */
 #define PORT_WEB   8080 /* tcp port for live watchers      */
 
-#define MAX_WEB_CLIENTS 1024
+#define MAX_WEB_CLIENTS 24
 
 #define STARTUP_FRAME_DURATION 10000 /* in us */
 #define MIN_GAP_BUS_TRANSFERS   1000 /* in us */

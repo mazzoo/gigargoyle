@@ -191,7 +191,10 @@ void set_screen_rgb8(uint32_t hdr, uint8_t s[ACAB_Y][ACAB_X][3])
 	if (hdr & PKT_MASK_REQ_ACK)
 		if (ggg->source == SOURCE_QM)
 			if (ggg->qm->state == NET_CONNECTED)
+			{
+				//LOG("PKTS: ACK\n");
 				write(ggg->qm->sock, ACK_AB_KLINGON, strlen(ACK_AB_KLINGON));
+			}
 }
 
 void set_screen_rgb16(uint32_t hdr, uint16_t s[ACAB_Y][ACAB_X][3])
