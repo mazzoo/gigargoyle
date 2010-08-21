@@ -294,7 +294,7 @@ again:
 
 	if (p == NULL)
 	{
-		LOG("PKTS: next_frame() ran into an empty fifo\n");
+		LOG("PKTS: next_frame() ran into an empty fifo: network timeout: %d/%d\n", MISSING_PKTS_TO_LOCAL - ggg->fifo->running_empty_on_network, MISSING_PKTS_TO_LOCAL);
 		return;
 	}
 

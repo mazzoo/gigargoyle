@@ -878,7 +878,9 @@ void gigargoyle_shutdown(void)
 int main(int argc, char ** argv)
 {
 	init_arguments(&arguments);
+#ifdef HAS_ARGP_PARSE
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
+#endif
 
 	init();
 

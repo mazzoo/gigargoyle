@@ -24,6 +24,8 @@
 
 #include <stdio.h>
 
+#include "packets.h"
+
 FILE * logfp;
 #define LOG(fmt, args...) {fprintf(logfp, fmt, ##args); fflush(logfp);}
 
@@ -53,6 +55,9 @@ typedef struct fifo_s
 
 	pkt_t    * packet; /* local buffer for a single fifo pkt */
 
+	int        running_empty_on_network; /* frame countdown before we switch from QM/IS to
+	                                      * filling the fifo with a local animation
+	                                      * see config.h / MISSING_PKTS_TO_LOCAL */
 } fifo_t;
 
 typedef struct gigargoyle_s

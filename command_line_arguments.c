@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "config.h"
-
+#include "gigargoyle.h"
 #include "command_line_arguments.h"
 
 /* Contains parsed command line arguments */
@@ -45,35 +45,55 @@ error_t parse_opt(int key, char *arg, struct argp_state *state) {
   case 'q':
     arguments->port_qm = strtol(arg, &endptr, 0);
     if (arguments->port_qm == 0) {
+#ifdef HAS_ARGP_ERROR
       argp_error(state, "Could not parse port: %s", arg);
+#else
+      LOG("Could not parse int: %s", arg);
+#endif
       return ARGP_ERR_UNKNOWN;
     } else
       break;
   case 'i':
     arguments->port_is = strtol(arg, &endptr, 0);
     if (arguments->port_is == 0) {
+#ifdef HAS_ARGP_ERROR
       argp_error(state, "Could not parse port: %s", arg);
+#else
+      LOG("Could not parse int: %s", arg);
+#endif
       return ARGP_ERR_UNKNOWN;
     } else
       break;
   case 'w':
     arguments->port_web = strtol(arg, &endptr, 0);
     if (arguments->port_web == 0) {
+#ifdef HAS_ARGP_ERROR
       argp_error(state, "Could not parse port: %s", arg);
+#else
+      LOG("Could not parse int: %s", arg);
+#endif
       return ARGP_ERR_UNKNOWN;
     } else
       break;
   case 'x':
     arguments->acab_x = strtol(arg, &endptr, 0);
     if (arguments->acab_x == 0) {
+#ifdef HAS_ARGP_ERROR
       argp_error(state, "Could not parse int: %s", arg);
+#else
+      LOG("Could not parse int: %s", arg);
+#endif
       return ARGP_ERR_UNKNOWN;
     } else
       break;
   case 'y':
     arguments->acab_y = strtol(arg, &endptr, 0);
     if (arguments->acab_y == 0) {
+#ifdef HAS_ARGP_ERROR
       argp_error(state, "Could not parse int: %s", arg);
+#else
+      LOG("Could not parse int: %s", arg);
+#endif
       return ARGP_ERR_UNKNOWN;
     } else
       break;
@@ -97,7 +117,11 @@ error_t parse_opt(int key, char *arg, struct argp_state *state) {
     break;
   case ARGP_KEY_END:
     if (state->arg_num > 0)
+#ifdef HAS_ARGP_USAGE
       argp_usage(state);
+#else
+      LOG("argp_usage(state)\n");
+#endif
     break;
   default:
     return ARGP_ERR_UNKNOWN;

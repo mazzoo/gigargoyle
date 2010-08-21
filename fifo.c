@@ -56,21 +56,20 @@ void wr_fifo(pkt_t * pkt)
 
 pkt_t * rd_fifo(void)
 {
-	static int running_empty_on_network = 0;
 	if (ggg->fifo->state == FIFO_EMPTY)
 	{
 		//LOG("FIFO: WARNING: fifo empty, returning NULL\n");
 		if (ggg->source == SOURCE_LOCAL)
 			fill_fifo_local();
 		else
-			running_empty_on_network++;
+			ggg->fifo->running_empty_on_network++;
 
-		if (running_empty_on_network >= MISSING_PKTS_TO_LOCAL)
+		if (ggg->fifo->running_empty_on_network >= MISSING_PKTS_TO_LOCAL)
 		{
 			LOG("FIFO: WARNING: filling fifo with local animation ");
 			LOG("as we're running empty from the network\n");
 			fill_fifo_local();
-			running_empty_on_network = 0;
+			ggg->fifo->running_empty_on_network = 0;
 		}
 
 		return NULL;
@@ -97,14 +96,14 @@ void flush_fifo(void)
 
 void init_fifo(void)
 {
-	ggg->fifo = malloc(sizeof(ggg->fifo));
+	ggg->fifo = malloc(sizeof(*ggg->fifo));
 	if (!ggg->fifo)
 	{
 		LOG("ERROR: out of memory (fifo)\n");
 		exit(1);
 	}
 
-	ggg->fifo->fifo = malloc(FIFO_DEPTH * (sizeof(ggg->fifo->fifo)));
+	ggg->fifo->fifo = malloc(FIFO_DEPTH * (sizeof(*ggg->fifo->fifo)));
 	if (!ggg->fifo->fifo)
 	{
 		LOG("ERROR: out of memory (fifo)\n");
@@ -124,6 +123,8 @@ void init_fifo(void)
 	ggg->fifo->rd    = 0;
 	ggg->fifo->wr    = 0;
 	ggg->fifo->state = FIFO_EMPTY;
+
+	ggg->fifo->running_empty_on_network = 0;
 
 	ggg->fifo->packet = malloc(sizeof(pkt_t) + FIFO_WIDTH);
 	if (!ggg->fifo->packet)
